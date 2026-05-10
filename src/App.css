@@ -1,0 +1,42 @@
+:root {
+  font-family: "Atlassian Sans", "Segoe UI", "Noto Sans", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: #172b4d;
+  background: radial-gradient(circle at 10% 0%, #ebf2ff 0%, #f5f7fb 38%, #f8f9fb 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100vh;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+  color: #172b4d;
+}
+
+.ak-renderer-document,
+.ak-renderer-wrapper,
+.ak-editor-content-area,
+.ak-table-wrapper {
+  font-family: inherit;
+}
+
+@media (max-width: 980px) {
+  :root {
+    font-size: 15px;
+  }
+}

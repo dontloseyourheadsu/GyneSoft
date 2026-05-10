@@ -1,0 +1,47 @@
+{
+  "name": "gynesoft",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "desktop": "npm run build && cd src-tauri && cargo run --release",
+    "desktop:debug": "npm run build && cd src-tauri && cargo run"
+  },
+  "dependencies": {
+    "@atlaskit/button": "^23.11.4",
+    "@atlaskit/css-reset": "^7.4.5",
+    "@atlaskit/datetime-picker": "^17.8.0",
+    "@atlaskit/dynamic-table": "^18.4.1",
+    "@atlaskit/form": "^15.5.5",
+    "@atlaskit/icon": "^34.4.0",
+    "@atlaskit/lozenge": "^13.8.0",
+    "@atlaskit/modal-dialog": "^15.0.0",
+    "@atlaskit/page-layout": "^4.3.1",
+    "@atlaskit/section-message": "^8.12.14",
+    "@atlaskit/select": "^21.10.5",
+    "@atlaskit/table-tree": "^12.3.0",
+    "@atlaskit/textarea": "^8.3.0",
+    "@atlaskit/textfield": "^8.3.2",
+    "@atlaskit/theme": "^23.2.0",
+    "@atlaskit/tokens": "^13.0.3",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@types/styled-components": "^5.1.36",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.15.0",
+    "styled-components": "^6.4.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
