@@ -6,6 +6,10 @@ export const api = {
   createPatient: (p: Patient) => invoke<number>("create_patient", { patient: p }),
   getPatient: (id: number) => invoke<Patient>("get_patient", { id }),
 
+  getConfig: () => invoke<Record<string, string>>("get_config"),
+  setConfig: (key: string, value: string) => invoke<void>("set_config", { key, value }),
+  uploadLogo: (base64Data: string) => invoke<string>("upload_logo", { base64Data }),
+
   createClinicalHistory: (h: ClinicalHistory) => invoke<number>("create_clinical_history", { h }),
   updateClinicalHistory: (id: number, h: ClinicalHistory) => invoke<void>("update_clinical_history", { id, h }),
   listClinicalHistoriesForPatient: (patientId: number) => invoke<ClinicalHistory[]>("list_clinical_histories_for_patient", { patientId }),

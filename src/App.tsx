@@ -1,9 +1,12 @@
 import { Routes, Route, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { PageLayout, Content, Main } from "@atlaskit/page-layout";
 import Button from "@atlaskit/button";
 import { token } from "@atlaskit/tokens";
 import styled from "styled-components";
+import { api } from "./api";
 import Home from "./views/Home";
+import Configuration from "./views/Configuration";
 import NotesList from "./views/NotesList";
 import PatientsList from "./views/PatientsList";
 import PatientDashboard from "./views/PatientDashboard";
@@ -12,10 +15,18 @@ import Colposcopy from "./views/Colposcopy";
 
 const AppHeader = () => {
   const navigate = useNavigate();
+  const [logo, setLogo] = useState<string>('/src-tauri/icons/logo.jpg');
+
+  useEffect(() => {
+    api.getConfig().then(cfg => {
+      if (cfg.logo_data) setLogo(cfg.logo_data);
+    }).catch(console.error);
+  }, []);
 
   return (
     <HeaderContainer>
           <HeaderLeft>
+        <img src={logo} alt="Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
         <BrandTitle>GyneSoft</BrandTitle>
         <NavGroup>
           <Button appearance="subtle" onClick={() => navigate("/")}>
@@ -23,6 +34,9 @@ const AppHeader = () => {
           </Button>
           <Button appearance="subtle" onClick={() => navigate("/patients")}> 
             Pacientes
+          </Button>
+          <Button appearance="subtle" onClick={() => navigate("/config")}> 
+            Configuración
           </Button>
         </NavGroup>
       </HeaderLeft>
@@ -79,6 +93,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/notes" element={<NotesList />} />
               <Route path="/patients" element={<PatientsList />} />
+              <Route path="/config" element={<Configuration />} />
               <Route path="/patient/:id" element={<PatientDashboard />} />
               <Route path="/patient/:id/colposcopy" element={<Colposcopy />} />
               <Route path="/edit" element={<NoteEditor />} />

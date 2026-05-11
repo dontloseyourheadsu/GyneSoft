@@ -1,5 +1,6 @@
 use crate::models::{DbState, Patient, ClinicalHistory, MedicalNote, ColposcopyEntry};
 use rusqlite::params;
+use tauri::Manager;
 
 #[tauri::command]
 pub fn create_patient(state: tauri::State<DbState>, patient: Patient) -> Result<i64, String> {
@@ -227,6 +228,54 @@ pub fn update_clinical_history(
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_config(state: tauri::State<DbState>) -> Result<std::collections::HashMap<String, String>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT key, value FROM config").map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
+
+    let mut map = std::collections::HashMap::new();
+    for r in rows {
+        let (k, v) = r.map_err(|e| e.to_string())?;
+        map.insert(k, v);
+    }
+    Ok(map)
+}
+
+#[tauri::command]
+pub fn set_config(state: tauri::State<DbState>, key: String, value: String) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [key, value],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn upload_logo(app: tauri::AppHandle, base64_data: String) -> Result<String, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+    
+    let path = app_dir.join("clinic_logo.jpg");
+    
+    let raw_data = base64_data
+        .split_once(',')
+        .map(|(_, payload)| payload)
+        .unwrap_or(base64_data.as_str());
+
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(raw_data)
+        .map_err(|e| format!("Imagen invalida: {e}"))?;
+
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[tauri::command]

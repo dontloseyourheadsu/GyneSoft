@@ -159,5 +159,32 @@ pub fn init_db(app: &AppHandle) -> Connection {
     )
     .expect("failed to create colposcopies table");
 
+    // Configuration table (Doctor and Clinic info)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )",
+        [],
+    )
+    .expect("failed to create config table");
+
+    // Initialize default config if not exists
+    let defaults = [
+        ("clinic_name", "Mi Clínica"),
+        ("doctor_name", "Dr. Nombre Apellido"),
+        ("doctor_specialty", "Ginecología y Obstetricia"),
+        ("cedula_prof", ""),
+        ("cedula_esp", ""),
+        ("logo_path", ""),
+    ];
+
+    for (k, v) in defaults {
+        conn.execute(
+            "INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)",
+            [k, v],
+        ).ok();
+    }
+
     conn
 }
