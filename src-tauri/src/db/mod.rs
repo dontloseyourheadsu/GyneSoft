@@ -146,12 +146,30 @@ pub fn init_db(app: &AppHandle) -> Connection {
     .expect("failed to create medical_notes table");
 
     // Colposcopy captures table
+    conn.execute("DROP TABLE IF EXISTS colposcopies", []).ok();
     conn.execute(
         "CREATE TABLE IF NOT EXISTS colposcopies (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_id INTEGER NOT NULL,
                 fecha_hora TEXT,
-                file_path TEXT,
+                
+                envio TEXT,
+                menarca TEXT, ritmo TEXT, mpf TEXT, ivsa TEXT,
+                gestas TEXT, partos TEXT, abortos TEXT, cesareas TEXT,
+                fum TEXT, ultimo_pap TEXT,
+                
+                vulva_vagina TEXT, colposcopia_tipo TEXT, cervix TEXT,
+                zona_transformacion TEXT, superficie TEXT, bordes TEXT,
+                epitelio_acetoblanco TEXT, prueba_schiller TEXT,
+                
+                patron_vascular_velloso TEXT, vasos_atipicos TEXT,
+                puntilleo TEXT, mosaico TEXT,
+                
+                diagnostico_colposcopico TEXT, otras_observaciones TEXT,
+                plan_tratamiento TEXT,
+                
+                diagrama_genitales_path TEXT, diagrama_cuadrantes_path TEXT,
+                figura1_path TEXT, figura2_path TEXT, figura3_path TEXT, figura4_path TEXT,
 
                 FOREIGN KEY(patient_id) REFERENCES patients(id)
             )",
