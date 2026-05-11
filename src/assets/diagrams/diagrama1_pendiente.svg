@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 310" width="220" height="310">
+
+  <!-- Outer teardrop (oval 4) -->
+  <path d="M110,20 C178,20 185,80 185,135 C185,198 153,255 110,278 C67,255 35,198 35,135 C35,80 42,20 110,20 Z"
+        fill="white" stroke="#1a1a6e" stroke-width="2.2"/>
+
+  <!-- Oval 3: pointed teardrop shape -->
+  <path d="M110,80
+           C148,80 162,115 162,155
+           C162,195 140,228 110,240
+           C80,228 58,195 58,155
+           C58,115 72,80 110,80 Z"
+        fill="none" stroke="#1a1a6e" stroke-width="2"/>
+
+  <!-- Oval 2: pointed teardrop shape -->
+  <path d="M110,102
+           C138,102 148,130 148,162
+           C148,192 132,216 110,226
+           C88,216 72,192 72,162
+           C72,130 82,102 110,102 Z"
+        fill="none" stroke="#1a1a6e" stroke-width="1.8"/>
+
+  <!-- Oval 1: thinner and moved up ~8px, narrower rx -->
+  <path d="M110,160
+           C118,160 122,171 122,181
+           C122,192 117,200 110,204
+           C103,200 98,192 98,181
+           C98,171 102,160 110,160 Z"
+        fill="none" stroke="#1a1a6e" stroke-width="1.5"/>
+
+  <!-- Filled black semicircle (inner) at top of oval 3 (y=80) -->
+  <path d="M103,80 A7,7 0 0 1 117,80 Z" fill="#1a1a6e"/>
+
+  <!-- Open semicircle (outer) legs touching oval 3 -->
+  <path d="M96,83 A14,11 0 0 1 124,83" fill="none" stroke="#1a1a6e" stroke-width="1.8"/>
+
+  <!-- Bottom white circle -->
+  <circle cx="110" cy="278" r="11" fill="white" stroke="#1a1a6e" stroke-width="1.8"/>
+
+</svg>

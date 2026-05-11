@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import Button from "@atlaskit/button";
 import styled from "styled-components";
 import { api } from "../api";
+import diagramaGenitales from "../assets/diagrams/diagrama1_pendiente.svg";
+import diagramaCuadrantes from "../assets/diagrams/diagrama2_cuadrado.svg";
 import type { Patient, ColposcopyEntry, ClinicalHistory } from "../types";
 
 const Colposcopy: React.FC = () => {
@@ -27,6 +29,11 @@ const Colposcopy: React.FC = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [captures, setCaptures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [diagramTool, setDiagramTool] = useState<"mark" | "erase">("mark");
+  const [diagramMarks, setDiagramMarks] = useState<{ genitales: DiagramMark[]; cuadrantes: DiagramMark[] }>({
+    genitales: [],
+    cuadrantes: []
+  });
 
   useEffect(() => {
     loadData();
@@ -101,6 +108,37 @@ const Colposcopy: React.FC = () => {
 
   const updateField = (k: keyof ColposcopyEntry, v: any) => setForm(s => ({ ...s, [k]: v }));
 
+  const handleDiagramClick = (key: "genitales" | "cuadrantes", e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    if (diagramTool === "mark") {
+      const newMark: DiagramMark = { id: `${Date.now()}-${Math.random()}`, x, y };
+      setDiagramMarks(prev => ({ ...prev, [key]: [newMark, ...prev[key]] }));
+      return;
+    }
+
+    const eraseRadiusPx = 14;
+    setDiagramMarks(prev => {
+      const target = prev[key];
+      if (target.length === 0) return prev;
+      let closestIndex = -1;
+      let closestDistance = Infinity;
+      target.forEach((mark, index) => {
+        const dx = (mark.x * rect.width) - (x * rect.width);
+        const dy = (mark.y * rect.height) - (y * rect.height);
+        const distance = Math.hypot(dx, dy);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+      if (closestIndex === -1 || closestDistance > eraseRadiusPx) return prev;
+      return { ...prev, [key]: target.filter((_, index) => index !== closestIndex) };
+    });
+  };
+
   return (
     <Container>
       <Header>
@@ -133,13 +171,37 @@ const Colposcopy: React.FC = () => {
 
           <Section>
              <SectionTitle>Diagramas</SectionTitle>
+             <DiagramToolbar>
+               <Button isSelected={diagramTool === "mark"} onClick={() => setDiagramTool("mark")}>Marcar X azul</Button>
+               <Button isSelected={diagramTool === "erase"} onClick={() => setDiagramTool("erase")}>Borrar marcas</Button>
+             </DiagramToolbar>
              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
                 <DiagramBox>
-                   <img src="/src/assets/diagrams/genitales.png" alt="Genitales" onError={(e)=>(e.target as any).style.display='none'} />
+                   <DiagramCanvas onClick={(e) => handleDiagramClick("genitales", e)}>
+                     <img src={diagramaGenitales} alt="Genitales" />
+                     <DiagramOverlay viewBox="0 0 1 1" preserveAspectRatio="none">
+                       {diagramMarks.genitales.map(mark => (
+                         <React.Fragment key={mark.id}>
+                           <line x1={mark.x - 0.03} y1={mark.y - 0.03} x2={mark.x + 0.03} y2={mark.y + 0.03} />
+                           <line x1={mark.x + 0.03} y1={mark.y - 0.03} x2={mark.x - 0.03} y2={mark.y + 0.03} />
+                         </React.Fragment>
+                       ))}
+                     </DiagramOverlay>
+                   </DiagramCanvas>
                    <p>Genitales Externos</p>
                 </DiagramBox>
                 <DiagramBox>
-                   <img src="/src/assets/diagrams/cuadrantes.png" alt="Cuadrantes" onError={(e)=>(e.target as any).style.display='none'} />
+                   <DiagramCanvas onClick={(e) => handleDiagramClick("cuadrantes", e)}>
+                     <img src={diagramaCuadrantes} alt="Cuadrantes" />
+                     <DiagramOverlay viewBox="0 0 1 1" preserveAspectRatio="none">
+                       {diagramMarks.cuadrantes.map(mark => (
+                         <React.Fragment key={mark.id}>
+                           <line x1={mark.x - 0.03} y1={mark.y - 0.03} x2={mark.x + 0.03} y2={mark.y + 0.03} />
+                           <line x1={mark.x + 0.03} y1={mark.y - 0.03} x2={mark.x - 0.03} y2={mark.y + 0.03} />
+                         </React.Fragment>
+                       ))}
+                     </DiagramOverlay>
+                   </DiagramCanvas>
                    <p>Cuadrantes Cervicales</p>
                 </DiagramBox>
              </div>
@@ -238,12 +300,17 @@ const VideoWrapper = styled.div`position: relative; background: #000; border-rad
 const CaptureBtn = styled.button`position: absolute; bottom: 12px; right: 12px; padding: 8px 16px; background: #0052CC; color: #fff; border: none; border-radius: 4px; cursor: pointer; &:hover { background: #0065FF; }`;
 const Gallery = styled.div`display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px;`;
 const CaptureThumb = styled.div`display: flex; flex-direction: column; align-items: center; img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px; border: 1px solid #DFE1E6; } span { font-size: 10px; color: #666; margin-top: 2px; }`;
-const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 80px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
+const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 160px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
+const DiagramToolbar = styled.div`display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;`;
+const DiagramCanvas = styled.div`position: relative; width: 100%; height: 180px; cursor: crosshair; img { width: 100%; height: 100%; object-fit: contain; display: block; }`;
+const DiagramOverlay = styled.svg`position: absolute; inset: 0; pointer-events: none; stroke: #0052CC; stroke-width: 0.015; stroke-linecap: round;`;
 const Grid = styled.div<{ columns?: number }>`display: grid; grid-template-columns: repeat(${props => props.columns || 1}, 1fr); gap: 12px;`;
 const Field = styled.div`display: flex; flex-direction: column; gap: 4px;`;
 const Label = styled.label`font-size: 11px; font-weight: 600; color: #6B778C;`;
 const Input = styled.input`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px;`;
 const Select = styled.select`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; background: #fff;`;
 const TextArea = styled.textarea`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; min-height: 80px; font-family: inherit; resize: vertical;`;
+
+type DiagramMark = { id: string; x: number; y: number };
 
 export default Colposcopy;
