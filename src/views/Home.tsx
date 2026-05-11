@@ -14,17 +14,10 @@ const Dashboard = () => {
       </Hero>
 
       <Grid>
-        <Card onClick={() => navigate("/notes")}>
+        <Card onClick={() => navigate("/patients")}>
           <IconWrapper>Pacientes</IconWrapper>
           <CardTitle>Gestión de Pacientes</CardTitle>
           <CardDescription>Cree y administre el historial clínico de sus pacientes.</CardDescription>
-          <Button appearance="primary" shouldFitContainer>Entrar</Button>
-        </Card>
-
-        <Card onClick={() => navigate("/colpo")}>
-          <IconWrapper>Colposcopia</IconWrapper>
-          <CardTitle>Visor de Colposcopia</CardTitle>
-          <CardDescription>Transmisión en tiempo real y captura de imágenes médicas.</CardDescription>
           <Button appearance="primary" shouldFitContainer>Entrar</Button>
         </Card>
       </Grid>
@@ -57,7 +50,7 @@ const Subtitle = styled.p`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 350px);
+  grid-template-columns: repeat(1, 350px);
   gap: 40px;
 
   @media (max-width: 900px) {
