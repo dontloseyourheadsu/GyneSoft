@@ -7,6 +7,10 @@ import type { Patient, ClinicalHistory, MedicalNote, ColposcopyEntry } from "../
 import ClinicalHistoryForm from "./ClinicalHistoryForm";
 import MedicalNoteForm from "./MedicalNoteForm";
 
+import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
+import { ClinicalHistoryPDF } from "../components/ClinicalHistoryPDF";
+import { MedicalNotePDF } from "../components/MedicalNotePDF";
+
 const PatientDashboard: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,12 +49,15 @@ const PatientDashboard: React.FC = () => {
     return <NewPatientWrapper><NewPatientCreator onCreated={() => navigate(`/patients`)} /></NewPatientWrapper>;
   }
 
-  const handleDeleteNote = async (_noteId: number) => {
+  const handleDeleteNote = async (noteId: number) => {
     if (window.confirm("¿Está seguro de que desea eliminar esta nota?")) {
-      // Assuming a delete command exists or will be added. 
-      // For now we just call it and reload.
-      // await api.deleteMedicalNote(noteId); 
-      load();
+      try {
+        await api.deleteMedicalNote(noteId);
+        load();
+      } catch (e) {
+        window.alert("Error al eliminar la nota.");
+        console.error(e);
+      }
     }
   };
 
@@ -72,9 +79,8 @@ const PatientDashboard: React.FC = () => {
           <CardHeader>
             <CardTitle>Historial Clínico</CardTitle>
             <CardActions>
-              <Button appearance="subtle" onClick={() => setActiveForm({ type: "history", mode: "view", data: history })}>Ver</Button>
+              <Button appearance="subtle" onClick={() => setActiveForm({ type: "history", mode: "view", data: history })}>Ver / Imprimir</Button>
               <Button appearance="subtle" onClick={() => setActiveForm({ type: "history", mode: "edit", data: history })}>Editar</Button>
-              <Button appearance="subtle" onClick={() => window.print()}>Imprimir</Button>
             </CardActions>
           </CardHeader>
           <CardContent>
@@ -111,9 +117,8 @@ const PatientDashboard: React.FC = () => {
                     <td>{n.notas?.slice(0, 50) || "(Sin título)"}...</td>
                     <td style={{ textAlign: 'right' }}>
                       <TableActions>
-                        <Button appearance="subtle" onClick={() => setActiveForm({ type: "note", mode: "view", data: n })}>Ver</Button>
+                        <Button appearance="subtle" onClick={() => setActiveForm({ type: "note", mode: "view", data: n })}>Ver / Imprimir</Button>
                         <Button appearance="subtle" onClick={() => setActiveForm({ type: "note", mode: "edit", data: n })}>Editar</Button>
-                        <Button appearance="subtle" onClick={() => window.print()}>Imprimir</Button>
                         <Button appearance="subtle" onClick={() => n.id && handleDeleteNote(n.id)}>Borrar</Button>
                       </TableActions>
                     </td>
@@ -168,29 +173,63 @@ const PatientDashboard: React.FC = () => {
             <ModalHeader>
               <h3>
                 {activeForm.type === "history" ? "Historial Clínico" : "Nota Médica"} 
-                ({activeForm.mode === "view" ? "Ver" : activeForm.mode === "edit" ? "Editar" : "Crear"})
+                ({activeForm.mode === "view" ? "Vista Previa" : activeForm.mode === "edit" ? "Editar" : "Crear"})
               </h3>
-              <Button appearance="subtle" onClick={() => setActiveForm(null)}>Cerrar</Button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {activeForm.mode === "view" && activeForm.type === "history" && (
+                  <PDFDownloadLink document={<ClinicalHistoryPDF patient={patient} history={activeForm.data} />} fileName={`Historial_${patient?.nombre}.pdf`}>
+                    {({ loading }) => (
+                      <Button appearance="primary" isDisabled={loading}>
+                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
+                      </Button>
+                    )}
+                  </PDFDownloadLink>
+                )}
+                {activeForm.mode === "view" && activeForm.type === "note" && (
+                  <PDFDownloadLink document={<MedicalNotePDF patient={patient} note={activeForm.data} />} fileName={`Nota_${patient?.nombre}.pdf`}>
+                    {({ loading }) => (
+                      <Button appearance="primary" isDisabled={loading}>
+                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
+                      </Button>
+                    )}
+                  </PDFDownloadLink>
+                )}
+                <Button appearance="subtle" onClick={() => setActiveForm(null)}>Cerrar</Button>
+              </div>
             </ModalHeader>
             <ModalBody>
-              {activeForm.type === "history" && (
-                <ClinicalHistoryForm 
-                  patientId={Number(id)} 
-                  initialData={activeForm.data} 
-                  mode={activeForm.mode === "view" ? "view" : "edit"} 
-                  onSaved={() => { setActiveForm(null); load(); }}
-                  onCancel={() => setActiveForm(null)}
-                />
-              )}
-              {activeForm.type === "note" && (
-                <MedicalNoteForm 
-                  patientId={Number(id)} 
-                  patientName={patient?.nombre}
-                  initialData={activeForm.data} 
-                  mode={activeForm.mode}
-                  onSaved={() => { setActiveForm(null); load(); }}
-                  onCancel={() => setActiveForm(null)}
-                />
+              {activeForm.mode === "view" ? (
+                <div style={{ height: '70vh' }}>
+                  <PDFViewer width="100%" height="100%" showToolbar={false} style={{ border: 'none' }}>
+                    {activeForm.type === "history" ? (
+                      <ClinicalHistoryPDF patient={patient} history={activeForm.data} />
+                    ) : (
+                      <MedicalNotePDF patient={patient} note={activeForm.data} />
+                    )}
+                  </PDFViewer>
+                </div>
+              ) : (
+                <>
+                  {activeForm.type === "history" && (
+                    <ClinicalHistoryForm 
+                      patientId={Number(id)} 
+                      initialData={activeForm.data} 
+                      mode="edit" 
+                      onSaved={() => { setActiveForm(null); load(); }}
+                      onCancel={() => setActiveForm(null)}
+                    />
+                  )}
+                  {activeForm.type === "note" && (
+                    <MedicalNoteForm 
+                      patientId={Number(id)} 
+                      patientName={patient?.nombre}
+                      initialData={activeForm.data} 
+                      mode={activeForm.mode}
+                      onSaved={() => { setActiveForm(null); load(); }}
+                      onCancel={() => setActiveForm(null)}
+                    />
+                  )}
+                </>
               )}
             </ModalBody>
           </ModalContainer>

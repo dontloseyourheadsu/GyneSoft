@@ -2,12 +2,22 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Button from "@atlaskit/button";
 import { token } from "@atlaskit/tokens";
+import { useEffect, useState } from "react";
+import { api } from "../api";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [logo, setLogo] = useState<string>('/src-tauri/icons/logo.jpg');
+
+  useEffect(() => {
+    api.getConfig().then((cfg: Record<string, string>) => {
+      if (cfg.logo_data) setLogo(cfg.logo_data);
+    }).catch(console.error);
+  }, []);
 
   return (
     <Container>
+      <img src={logo} alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '20px' }} />
       <Hero>
         <Title>Bienvenido a GyneSoft</Title>
         <Subtitle>Sistema de Gestión Clínica y Visor de Colposcopia</Subtitle>
@@ -19,6 +29,13 @@ const Dashboard = () => {
           <CardTitle>Gestión de Pacientes</CardTitle>
           <CardDescription>Cree y administre el historial clínico de sus pacientes.</CardDescription>
           <Button appearance="primary" shouldFitContainer>Entrar</Button>
+        </Card>
+
+        <Card onClick={() => navigate("/config")}>
+          <IconWrapper>Configuración</IconWrapper>
+          <CardTitle>Datos del Doctor</CardTitle>
+          <CardDescription>Configure su información profesional, nombre de clínica y logo.</CardDescription>
+          <Button appearance="subtle" shouldFitContainer>Configurar</Button>
         </Card>
       </Grid>
     </Container>
@@ -50,7 +67,7 @@ const Subtitle = styled.p`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(1, 350px);
+  grid-template-columns: repeat(2, 350px);
   gap: 40px;
 
   @media (max-width: 900px) {

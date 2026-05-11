@@ -70,9 +70,11 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, initialData, mode = "
     }
     setSaving(true);
     try {
-      // Logic for create or update if we had an update command, 
-      // for now keeping it as create_clinical_history as in previous state
-      await api.createClinicalHistory(form as ClinicalHistory);
+      if (form.id) {
+        await api.updateClinicalHistory(form.id, form as ClinicalHistory);
+      } else {
+        await api.createClinicalHistory(form as ClinicalHistory);
+      }
       onSaved?.();
     } catch (e) {
       console.error(e);

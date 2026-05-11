@@ -1,5 +1,6 @@
 use crate::models::{DbState, Patient, ClinicalHistory, MedicalNote, ColposcopyEntry};
 use rusqlite::params;
+use tauri::Manager;
 
 #[tauri::command]
 pub fn create_patient(state: tauri::State<DbState>, patient: Patient) -> Result<i64, String> {
@@ -198,6 +199,86 @@ pub fn get_clinical_history(
 }
 
 #[tauri::command]
+pub fn update_clinical_history(
+    state: tauri::State<DbState>,
+    id: i32,
+    h: ClinicalHistory,
+) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "UPDATE clinical_histories SET 
+            fecha = ?, diabetes = ?, hipertension = ?, cancer = ?, otros_heredo = ?,
+            higiene_personal = ?, calidad_alimentacion = ?, tabaquismo = ?, alcoholismo = ?, grupo_sanguineo_rh = ?, otros_no_patologicos = ?,
+            alergias = ?, quirurgicos = ?, traumaticos = ?, transfusionales = ?, medicos = ?,
+            menarca = ?, telarca = ?, pubarca = ?, ritmo = ?, dismenorrea = ?, ivsa = ?, numero_parejas = ?, metodo_anticonceptivo = ?, gesta = ?, para = ?, cesareas = ?, abortos = ?, productos = ?, fup = ?, doc = ?, fur = ?, fpp = ?, padecimiento_actual = ?,
+            peso = ?, talla = ?, imc = ?, ta = ?, fc = ?, fr = ?, temp = ?, so2 = ?,
+            habitus_exterior = ?, cabeza = ?, torax = ?, abdomen = ?, genitales = ?, extremidades = ?,
+            estudios_lab = ?, diagnostico = ?, tratamiento = ?, comentarios = ?
+        WHERE id = ?",
+        params![
+            h.fecha, h.diabetes, h.hipertension, h.cancer, h.otros_heredo,
+            h.higiene_personal, h.calidad_alimentacion, h.tabaquismo, h.alcoholismo, h.grupo_sanguineo_rh, h.otros_no_patologicos,
+            h.alergias, h.quirurgicos, h.traumaticos, h.transfusionales, h.medicos,
+            h.menarca, h.telarca, h.pubarca, h.ritmo, h.dismenorrea, h.ivsa, h.numero_parejas, h.metodo_anticonceptivo, h.gesta, h.para, h.cesareas, h.abortos, h.productos, h.fup, h.doc, h.fur, h.fpp, h.padecimiento_actual,
+            h.peso, h.talla, h.imc, h.ta, h.fc, h.fr, h.temp, h.so2,
+            h.habitus_exterior, h.cabeza, h.torax, h.abdomen, h.genitales, h.extremidades,
+            h.estudios_lab, h.diagnostico, h.tratamiento, h.comentarios,
+            id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_config(state: tauri::State<DbState>) -> Result<std::collections::HashMap<String, String>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT key, value FROM config").map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
+
+    let mut map = std::collections::HashMap::new();
+    for r in rows {
+        let (k, v) = r.map_err(|e| e.to_string())?;
+        map.insert(k, v);
+    }
+    Ok(map)
+}
+
+#[tauri::command]
+pub fn set_config(state: tauri::State<DbState>, key: String, value: String) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [key, value],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn upload_logo(app: tauri::AppHandle, base64_data: String) -> Result<String, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+    
+    let path = app_dir.join("clinic_logo.jpg");
+    
+    let raw_data = base64_data
+        .split_once(',')
+        .map(|(_, payload)| payload)
+        .unwrap_or(base64_data.as_str());
+
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(raw_data)
+        .map_err(|e| format!("Imagen invalida: {e}"))?;
+
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 pub fn list_clinical_histories_for_patient(
     state: tauri::State<DbState>,
     patient_id: i32,
@@ -285,6 +366,34 @@ pub fn create_medical_note(state: tauri::State<DbState>, n: MedicalNote) -> Resu
     )
     .map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn update_medical_note(
+    state: tauri::State<DbState>,
+    id: i32,
+    n: MedicalNote,
+) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "UPDATE medical_notes SET 
+            fecha_hora = ?, notas = ?, peso = ?, talla = ?, ta = ?, fc = ?, fr = ?, temp = ?, dx = ?, plan = ?, firma = ?, especialidad = ?, cedula_prof = ?, cedula_especialidad = ?
+        WHERE id = ?",
+        params![
+            n.fecha_hora, n.notas, n.peso, n.talla, n.ta, n.fc, n.fr, n.temp, n.dx, n.plan, n.firma, n.especialidad, n.cedula_prof, n.cedula_especialidad,
+            id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_medical_note(state: tauri::State<DbState>, id: i32) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute("DELETE FROM medical_notes WHERE id = ?", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
