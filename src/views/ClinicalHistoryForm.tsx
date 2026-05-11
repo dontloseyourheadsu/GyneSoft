@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Button from "@atlaskit/button";
 import styled from "styled-components";
 import type { ClinicalHistory } from "../types";
@@ -6,7 +6,10 @@ import { api } from "../api";
 
 interface Props {
   patientId: number;
+  initialData?: ClinicalHistory | null;
+  mode?: "view" | "edit";
   onSaved?: () => void;
+  onCancel?: () => void;
 }
 
 const formatTodayDate = () => {
@@ -17,11 +20,22 @@ const formatTodayDate = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
+const ClinicalHistoryForm: React.FC<Props> = ({ patientId, initialData, mode = "edit", onSaved, onCancel }) => {
   const [form, setForm] = useState<Partial<ClinicalHistory>>({ patient_id: patientId, fecha: formatTodayDate() });
   const [saving, setSaving] = useState(false);
 
-  const setField = (k: keyof ClinicalHistory, v: any) => setForm((s) => ({ ...s, [k]: v }));
+  useEffect(() => {
+    if (initialData) {
+      setForm(initialData);
+    }
+  }, [initialData]);
+
+  const isReadOnly = mode === "view";
+
+  const setField = (k: keyof ClinicalHistory, v: any) => {
+    if (isReadOnly) return;
+    setForm((s) => ({ ...s, [k]: v }));
+  };
 
   const isNegative = (value?: string | null) => {
     if (value === undefined || value === null || value === "") return false;
@@ -30,6 +44,7 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
   };
 
   const submit = async () => {
+    if (isReadOnly) return;
     if (
       isNegative(form.menarca) ||
       isNegative(form.telarca) ||
@@ -55,6 +70,8 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
     }
     setSaving(true);
     try {
+      // Logic for create or update if we had an update command, 
+      // for now keeping it as create_clinical_history as in previous state
       await api.createClinicalHistory(form as ClinicalHistory);
       onSaved?.();
     } catch (e) {
@@ -71,7 +88,12 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid columns={2}>
           <Field>
             <Label>Fecha de registro</Label>
-            <Input type="date" value={form.fecha || ""} onChange={(e)=>setField('fecha', e.target.value)} />
+            <Input 
+              type="date" 
+              value={form.fecha || ""} 
+              readOnly={isReadOnly}
+              onChange={(e)=>setField('fecha', e.target.value)} 
+            />
           </Field>
         </Grid>
       </SectionBlock>
@@ -80,20 +102,39 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <SectionTitle>Antecedentes Heredofamiliares</SectionTitle>
         <Grid>
           <CheckRow>
-            <input type="checkbox" checked={form.diabetes === "Si"} onChange={(e)=>setField('diabetes', e.target.checked ? "Si" : "No")} />
+            <input 
+              type="checkbox" 
+              disabled={isReadOnly}
+              checked={form.diabetes === "Si"} 
+              onChange={(e)=>setField('diabetes', e.target.checked ? "Si" : "No")} 
+            />
             <span>Diabetes</span>
           </CheckRow>
           <CheckRow>
-            <input type="checkbox" checked={form.hipertension === "Si"} onChange={(e)=>setField('hipertension', e.target.checked ? "Si" : "No")} />
+            <input 
+              type="checkbox" 
+              disabled={isReadOnly}
+              checked={form.hipertension === "Si"} 
+              onChange={(e)=>setField('hipertension', e.target.checked ? "Si" : "No")} 
+            />
             <span>Hipertensión</span>
           </CheckRow>
           <CheckRow>
-            <input type="checkbox" checked={form.cancer === "Si"} onChange={(e)=>setField('cancer', e.target.checked ? "Si" : "No")} />
+            <input 
+              type="checkbox" 
+              disabled={isReadOnly}
+              checked={form.cancer === "Si"} 
+              onChange={(e)=>setField('cancer', e.target.checked ? "Si" : "No")} 
+            />
             <span>Cáncer</span>
           </CheckRow>
           <Field>
             <Label>Otros</Label>
-            <Input value={form.otros_heredo || ""} onChange={(e)=>setField('otros_heredo', e.target.value)} />
+            <Input 
+              value={form.otros_heredo || ""} 
+              readOnly={isReadOnly}
+              onChange={(e)=>setField('otros_heredo', e.target.value)} 
+            />
           </Field>
         </Grid>
       </SectionBlock>
@@ -103,27 +144,27 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid>
           <Field>
             <Label>Higiene Personal</Label>
-            <Input value={form.higiene_personal || ""} onChange={(e)=>setField('higiene_personal', e.target.value)} />
+            <Input value={form.higiene_personal || ""} readOnly={isReadOnly} onChange={(e)=>setField('higiene_personal', e.target.value)} />
           </Field>
           <Field>
             <Label>Calidad de Alimentación</Label>
-            <Input value={form.calidad_alimentacion || ""} onChange={(e)=>setField('calidad_alimentacion', e.target.value)} />
+            <Input value={form.calidad_alimentacion || ""} readOnly={isReadOnly} onChange={(e)=>setField('calidad_alimentacion', e.target.value)} />
           </Field>
           <CheckRow>
-            <input type="checkbox" checked={form.tabaquismo === "Si"} onChange={(e)=>setField('tabaquismo', e.target.checked ? "Si" : "No")} />
+            <input type="checkbox" disabled={isReadOnly} checked={form.tabaquismo === "Si"} onChange={(e)=>setField('tabaquismo', e.target.checked ? "Si" : "No")} />
             <span>Tabaquismo</span>
           </CheckRow>
           <CheckRow>
-            <input type="checkbox" checked={form.alcoholismo === "Si"} onChange={(e)=>setField('alcoholismo', e.target.checked ? "Si" : "No")} />
+            <input type="checkbox" disabled={isReadOnly} checked={form.alcoholismo === "Si"} onChange={(e)=>setField('alcoholismo', e.target.checked ? "Si" : "No")} />
             <span>Alcoholismo</span>
           </CheckRow>
           <Field>
             <Label>Grupo Sanguíneo y RH</Label>
-            <Input value={form.grupo_sanguineo_rh || ""} onChange={(e)=>setField('grupo_sanguineo_rh', e.target.value)} />
+            <Input value={form.grupo_sanguineo_rh || ""} readOnly={isReadOnly} onChange={(e)=>setField('grupo_sanguineo_rh', e.target.value)} />
           </Field>
           <Field>
             <Label>Otros</Label>
-            <Input value={form.otros_no_patologicos || ""} onChange={(e)=>setField('otros_no_patologicos', e.target.value)} />
+            <Input value={form.otros_no_patologicos || ""} readOnly={isReadOnly} onChange={(e)=>setField('otros_no_patologicos', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
@@ -133,23 +174,23 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid>
           <Field>
             <Label>Alergias</Label>
-            <Input value={form.alergias || ""} onChange={(e)=>setField('alergias', e.target.value)} />
+            <Input value={form.alergias || ""} readOnly={isReadOnly} onChange={(e)=>setField('alergias', e.target.value)} />
           </Field>
           <Field>
             <Label>Quirúrgicos</Label>
-            <Input value={form.quirurgicos || ""} onChange={(e)=>setField('quirurgicos', e.target.value)} />
+            <Input value={form.quirurgicos || ""} readOnly={isReadOnly} onChange={(e)=>setField('quirurgicos', e.target.value)} />
           </Field>
           <Field>
             <Label>Traumáticos</Label>
-            <Input value={form.traumaticos || ""} onChange={(e)=>setField('traumaticos', e.target.value)} />
+            <Input value={form.traumaticos || ""} readOnly={isReadOnly} onChange={(e)=>setField('traumaticos', e.target.value)} />
           </Field>
           <Field>
             <Label>Transfuncionales</Label>
-            <Input value={form.transfusionales || ""} onChange={(e)=>setField('transfusionales', e.target.value)} />
+            <Input value={form.transfusionales || ""} readOnly={isReadOnly} onChange={(e)=>setField('transfusionales', e.target.value)} />
           </Field>
           <Field>
             <Label>Médicos</Label>
-            <Input value={form.medicos || ""} onChange={(e)=>setField('medicos', e.target.value)} />
+            <Input value={form.medicos || ""} readOnly={isReadOnly} onChange={(e)=>setField('medicos', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
@@ -159,78 +200,78 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid>
           <Field>
             <Label>Menarca (Edad de primera regla)</Label>
-            <Input type="number" min="0" value={form.menarca || ""} onChange={(e)=>setField('menarca', e.target.value)} />
+            <Input type="number" min="0" value={form.menarca || ""} readOnly={isReadOnly} onChange={(e)=>setField('menarca', e.target.value)} />
           </Field>
           <Field>
             <Label>Telarca</Label>
-            <Input type="number" min="0" value={form.telarca || ""} onChange={(e)=>setField('telarca', e.target.value)} />
+            <Input type="number" min="0" value={form.telarca || ""} readOnly={isReadOnly} onChange={(e)=>setField('telarca', e.target.value)} />
           </Field>
           <Field>
             <Label>Pubarca</Label>
-            <Input type="number" min="0" value={form.pubarca || ""} onChange={(e)=>setField('pubarca', e.target.value)} />
+            <Input type="number" min="0" value={form.pubarca || ""} readOnly={isReadOnly} onChange={(e)=>setField('pubarca', e.target.value)} />
           </Field>
           <Field>
             <Label>Ritmo (Frecuencia x Duración)</Label>
-            <Input value={form.ritmo || ""} onChange={(e)=>setField('ritmo', e.target.value)} />
+            <Input value={form.ritmo || ""} readOnly={isReadOnly} onChange={(e)=>setField('ritmo', e.target.value)} />
           </Field>
           <Field>
             <Label>Dismenorrea</Label>
-            <Input value={form.dismenorrea || ""} onChange={(e)=>setField('dismenorrea', e.target.value)} />
+            <Input value={form.dismenorrea || ""} readOnly={isReadOnly} onChange={(e)=>setField('dismenorrea', e.target.value)} />
           </Field>
           <Field>
             <Label>IVSA (Inicio de Vida Sexual Activa)</Label>
-            <Input type="number" min="0" value={form.ivsa || ""} onChange={(e)=>setField('ivsa', e.target.value)} />
+            <Input type="number" min="0" value={form.ivsa || ""} readOnly={isReadOnly} onChange={(e)=>setField('ivsa', e.target.value)} />
           </Field>
           <Field>
             <Label>Número de parejas sexuales</Label>
-            <Input type="number" min="0" value={form.numero_parejas || ""} onChange={(e)=>setField('numero_parejas', e.target.value)} />
+            <Input type="number" min="0" value={form.numero_parejas || ""} readOnly={isReadOnly} onChange={(e)=>setField('numero_parejas', e.target.value)} />
           </Field>
           <Field>
             <Label>Método anticonceptivo</Label>
-            <Input value={form.metodo_anticonceptivo || ""} onChange={(e)=>setField('metodo_anticonceptivo', e.target.value)} />
+            <Input value={form.metodo_anticonceptivo || ""} readOnly={isReadOnly} onChange={(e)=>setField('metodo_anticonceptivo', e.target.value)} />
           </Field>
           <Field>
             <Label>Gesta</Label>
-            <Input type="number" min="0" value={form.gesta || ""} onChange={(e)=>setField('gesta', e.target.value)} />
+            <Input type="number" min="0" value={form.gesta || ""} readOnly={isReadOnly} onChange={(e)=>setField('gesta', e.target.value)} />
           </Field>
           <Field>
             <Label>Para</Label>
-            <Input type="number" min="0" value={form.para || ""} onChange={(e)=>setField('para', e.target.value)} />
+            <Input type="number" min="0" value={form.para || ""} readOnly={isReadOnly} onChange={(e)=>setField('para', e.target.value)} />
           </Field>
           <Field>
             <Label>Cesáreas</Label>
-            <Input type="number" min="0" value={form.cesareas || ""} onChange={(e)=>setField('cesareas', e.target.value)} />
+            <Input type="number" min="0" value={form.cesareas || ""} readOnly={isReadOnly} onChange={(e)=>setField('cesareas', e.target.value)} />
           </Field>
           <Field>
             <Label>Abortos</Label>
-            <Input type="number" min="0" value={form.abortos || ""} onChange={(e)=>setField('abortos', e.target.value)} />
+            <Input type="number" min="0" value={form.abortos || ""} readOnly={isReadOnly} onChange={(e)=>setField('abortos', e.target.value)} />
           </Field>
           <Field>
             <Label>Productos</Label>
-            <Input type="number" min="0" value={form.productos || ""} onChange={(e)=>setField('productos', e.target.value)} />
+            <Input type="number" min="0" value={form.productos || ""} readOnly={isReadOnly} onChange={(e)=>setField('productos', e.target.value)} />
           </Field>
           <Field>
             <Label>F.U.P. (Fecha de Último Parto)</Label>
-            <Input type="date" value={form.fup || ""} onChange={(e)=>setField('fup', e.target.value)} />
+            <Input type="date" value={form.fup || ""} readOnly={isReadOnly} onChange={(e)=>setField('fup', e.target.value)} />
           </Field>
           <Field>
             <Label>D.O.C. (Papanicolaou)</Label>
-            <Input type="date" value={form.doc || ""} onChange={(e)=>setField('doc', e.target.value)} />
+            <Input type="date" value={form.doc || ""} readOnly={isReadOnly} onChange={(e)=>setField('doc', e.target.value)} />
           </Field>
           <Field>
             <Label>F.U.R. (Fecha de Última Regla)</Label>
-            <Input type="date" value={form.fur || ""} onChange={(e)=>setField('fur', e.target.value)} />
+            <Input type="date" value={form.fur || ""} readOnly={isReadOnly} onChange={(e)=>setField('fur', e.target.value)} />
           </Field>
           <Field>
             <Label>F.P.P. (Fecha Probable de Parto)</Label>
-            <Input type="date" value={form.fpp || ""} onChange={(e)=>setField('fpp', e.target.value)} />
+            <Input type="date" value={form.fpp || ""} readOnly={isReadOnly} onChange={(e)=>setField('fpp', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
 
       <SectionBlock>
         <SectionTitle>Padecimiento actual</SectionTitle>
-        <LargeTextArea value={form.padecimiento_actual || ""} onChange={(e)=>setField('padecimiento_actual', e.target.value)} />
+        <LargeTextArea value={form.padecimiento_actual || ""} readOnly={isReadOnly} onChange={(e)=>setField('padecimiento_actual', e.target.value)} />
       </SectionBlock>
 
       <SectionBlock>
@@ -238,35 +279,35 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid>
           <Field>
             <Label>Peso (kg)</Label>
-            <Input type="number" min="0" value={form.peso || ""} onChange={(e)=>setField('peso', e.target.value)} />
+            <Input type="number" min="0" value={form.peso || ""} readOnly={isReadOnly} onChange={(e)=>setField('peso', e.target.value)} />
           </Field>
           <Field>
             <Label>Talla (cms)</Label>
-            <Input type="number" min="0" value={form.talla || ""} onChange={(e)=>setField('talla', e.target.value)} />
+            <Input type="number" min="0" value={form.talla || ""} readOnly={isReadOnly} onChange={(e)=>setField('talla', e.target.value)} />
           </Field>
           <Field>
             <Label>I.M.C.</Label>
-            <Input type="number" min="0" value={form.imc || ""} onChange={(e)=>setField('imc', e.target.value)} />
+            <Input type="number" min="0" value={form.imc || ""} readOnly={isReadOnly} onChange={(e)=>setField('imc', e.target.value)} />
           </Field>
           <Field>
             <Label>T/A</Label>
-            <Input type="number" min="0" value={form.ta || ""} onChange={(e)=>setField('ta', e.target.value)} />
+            <Input type="number" min="0" value={form.ta || ""} readOnly={isReadOnly} onChange={(e)=>setField('ta', e.target.value)} />
           </Field>
           <Field>
             <Label>F.C.</Label>
-            <Input type="number" min="0" value={form.fc || ""} onChange={(e)=>setField('fc', e.target.value)} />
+            <Input type="number" min="0" value={form.fc || ""} readOnly={isReadOnly} onChange={(e)=>setField('fc', e.target.value)} />
           </Field>
           <Field>
             <Label>F.R.</Label>
-            <Input type="number" min="0" value={form.fr || ""} onChange={(e)=>setField('fr', e.target.value)} />
+            <Input type="number" min="0" value={form.fr || ""} readOnly={isReadOnly} onChange={(e)=>setField('fr', e.target.value)} />
           </Field>
           <Field>
             <Label>Temp</Label>
-            <Input type="number" min="0" value={form.temp || ""} onChange={(e)=>setField('temp', e.target.value)} />
+            <Input type="number" min="0" value={form.temp || ""} readOnly={isReadOnly} onChange={(e)=>setField('temp', e.target.value)} />
           </Field>
           <Field>
             <Label>SO2</Label>
-            <Input type="number" min="0" value={form.so2 || ""} onChange={(e)=>setField('so2', e.target.value)} />
+            <Input type="number" min="0" value={form.so2 || ""} readOnly={isReadOnly} onChange={(e)=>setField('so2', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
@@ -276,27 +317,27 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid columns={3}>
           <Field>
             <Label>Habitus exterior</Label>
-            <TextArea value={form.habitus_exterior || ""} onChange={(e)=>setField('habitus_exterior', e.target.value)} />
+            <TextArea value={form.habitus_exterior || ""} readOnly={isReadOnly} onChange={(e)=>setField('habitus_exterior', e.target.value)} />
           </Field>
           <Field>
             <Label>Cabeza</Label>
-            <TextArea value={form.cabeza || ""} onChange={(e)=>setField('cabeza', e.target.value)} />
+            <TextArea value={form.cabeza || ""} readOnly={isReadOnly} onChange={(e)=>setField('cabeza', e.target.value)} />
           </Field>
           <Field>
             <Label>Tórax</Label>
-            <TextArea value={form.torax || ""} onChange={(e)=>setField('torax', e.target.value)} />
+            <TextArea value={form.torax || ""} readOnly={isReadOnly} onChange={(e)=>setField('torax', e.target.value)} />
           </Field>
           <Field>
             <Label>Abdomen</Label>
-            <TextArea value={form.abdomen || ""} onChange={(e)=>setField('abdomen', e.target.value)} />
+            <TextArea value={form.abdomen || ""} readOnly={isReadOnly} onChange={(e)=>setField('abdomen', e.target.value)} />
           </Field>
           <Field>
             <Label>Genitales</Label>
-            <TextArea value={form.genitales || ""} onChange={(e)=>setField('genitales', e.target.value)} />
+            <TextArea value={form.genitales || ""} readOnly={isReadOnly} onChange={(e)=>setField('genitales', e.target.value)} />
           </Field>
           <Field>
             <Label>Extremidades</Label>
-            <TextArea value={form.extremidades || ""} onChange={(e)=>setField('extremidades', e.target.value)} />
+            <TextArea value={form.extremidades || ""} readOnly={isReadOnly} onChange={(e)=>setField('extremidades', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
@@ -306,26 +347,29 @@ const ClinicalHistoryForm: React.FC<Props> = ({ patientId, onSaved }) => {
         <Grid columns={2}>
           <Field>
             <Label>Estudios de Laboratorio y Gabinete</Label>
-            <TextArea value={form.estudios_lab || ""} onChange={(e)=>setField('estudios_lab', e.target.value)} />
+            <TextArea value={form.estudios_lab || ""} readOnly={isReadOnly} onChange={(e)=>setField('estudios_lab', e.target.value)} />
           </Field>
           <Field>
             <Label>DIAGNÓSTICO</Label>
-            <TextArea value={form.diagnostico || ""} onChange={(e)=>setField('diagnostico', e.target.value)} />
+            <TextArea value={form.diagnostico || ""} readOnly={isReadOnly} onChange={(e)=>setField('diagnostico', e.target.value)} />
           </Field>
           <Field>
             <Label>Tratamiento</Label>
-            <TextArea value={form.tratamiento || ""} onChange={(e)=>setField('tratamiento', e.target.value)} />
+            <TextArea value={form.tratamiento || ""} readOnly={isReadOnly} onChange={(e)=>setField('tratamiento', e.target.value)} />
           </Field>
           <Field>
             <Label>Comentarios</Label>
-            <TextArea value={form.comentarios || ""} onChange={(e)=>setField('comentarios', e.target.value)} />
+            <TextArea value={form.comentarios || ""} readOnly={isReadOnly} onChange={(e)=>setField('comentarios', e.target.value)} />
           </Field>
         </Grid>
       </SectionBlock>
 
-      <div>
-        <Button appearance="primary" onClick={submit} isDisabled={saving}>Guardar Historia</Button>
-      </div>
+      <Actions>
+        <Button appearance="subtle" onClick={onCancel}>Cerrar</Button>
+        {!isReadOnly && (
+          <Button appearance="primary" onClick={submit} isDisabled={saving}>Guardar Historia</Button>
+        )}
+      </Actions>
     </Wrapper>
   );
 };
@@ -362,8 +406,9 @@ const Grid = styled.div<{ columns?: number }>`
 const Field = styled.div`
   display:flex; flex-direction:column; gap:6px;
 `;
-const Input = styled.input`padding:8px; border:1px solid #DFE1E6; border-radius:4px;`;
-const TextArea = styled.textarea`padding:8px; border:1px solid #DFE1E6; border-radius:4px; min-height:80px;`;
-const LargeTextArea = styled.textarea`padding:10px; border:1px solid #DFE1E6; border-radius:6px; min-height:160px; width:100%;`;
+const Input = styled.input`padding:8px; border:1px solid #DFE1E6; border-radius:4px; &:read-only { background:#f9f9f9; }`;
+const TextArea = styled.textarea`padding:8px; border:1px solid #DFE1E6; border-radius:4px; min-height:80px; &:read-only { background:#f9f9f9; }`;
+const LargeTextArea = styled.textarea`padding:10px; border:1px solid #DFE1E6; border-radius:6px; min-height:160px; width:100%; &:read-only { background:#f9f9f9; }`;
+const Actions = styled.div`display:flex; gap:8px; margin-top:16px;`;
 
 export default ClinicalHistoryForm;
