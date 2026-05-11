@@ -92,7 +92,50 @@ export interface ColposcopyEntry {
   id?: number;
   patient_id: number;
   fecha_hora?: string | null;
-  file_path?: string | null;
+
+  // Identificación
+  envio?: string | null;
+
+  // Datos G-O
+  menarca?: string | null;
+  ritmo?: string | null;
+  mpf?: string | null;
+  ivsa?: string | null;
+  gestas?: string | null;
+  partos?: string | null;
+  abortos?: string | null;
+  cesareas?: string | null;
+  fum?: string | null;
+  ultimo_pap?: string | null;
+
+  // Datos Colposcópicos
+  vulva_vagina?: string | null;
+  colposcopia_tipo?: string | null;
+  cervix?: string | null;
+  zona_transformacion?: string | null;
+  superficie?: string | null;
+  bordes?: string | null;
+  epitelio_acetoblanco?: string | null;
+  prueba_schiller?: string | null;
+
+  // Observaciones
+  patron_vascular_velloso?: string | null;
+  vasos_atipicos?: string | null;
+  puntilleo?: string | null;
+  mosaico?: string | null;
+
+  // Conclusión
+  diagnostico_colposcopico?: string | null;
+  otras_observaciones?: string | null;
+  plan_tratamiento?: string | null;
+
+  // Imágenes
+  diagrama_genitales_path?: string | null;
+  diagrama_cuadrantes_path?: string | null;
+  figura1_path?: string | null;
+  figura2_path?: string | null;
+  figura3_path?: string | null;
+  figura4_path?: string | null;
 }
 
 export {};

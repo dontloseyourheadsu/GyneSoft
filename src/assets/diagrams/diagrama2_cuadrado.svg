@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="300" height="240">
+
+  <!-- White background -->
+  <rect x="0" y="0" width="300" height="240" fill="white"/>
+
+  <!-- Outer square -->
+  <rect x="10" y="10" width="280" height="220" fill="white" stroke="#111" stroke-width="2"/>
+
+  <!-- Diagonal lines (X from corners) -->
+  <line x1="10" y1="10" x2="290" y2="230" stroke="#111" stroke-width="1.5"/>
+  <line x1="290" y1="10" x2="10" y2="230" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Outer large ellipse (covers diagonals with white fill) -->
+  <ellipse cx="150" cy="120" rx="128" ry="98" fill="white" stroke="#111" stroke-width="2"/>
+
+  <!-- Inner smaller ellipse -->
+  <ellipse cx="150" cy="120" rx="68" ry="44" fill="white" stroke="#111" stroke-width="1.8"/>
+
+  <!-- Horizontal line inside inner ellipse — shorter than full width -->
+  <line x1="100" y1="120" x2="200" y2="120" stroke="#111" stroke-width="1.5"/>
+
+</svg>

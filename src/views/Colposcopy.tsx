@@ -1,435 +1,316 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { invoke } from "@tauri-apps/api/core";
+import React, { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import Button from "@atlaskit/button";
-import { token } from "@atlaskit/tokens";
 import styled from "styled-components";
-import SectionMessage from "@atlaskit/section-message";
 import { api } from "../api";
+import diagramaGenitales from "../assets/diagrams/diagrama1_pendiente.svg";
+import diagramaCuadrantes from "../assets/diagrams/diagrama2_cuadrado.svg";
+import type { Patient, ColposcopyEntry, ClinicalHistory } from "../types";
 
-interface LinuxVideoDevice {
-  label: string;
-  path: string;
-}
-
-interface CaptureEntry {
-  filePath: string;
-  label: string;
-}
-
-const preferredDeviceScore = (label: string): number => {
-  const lower = label.toLowerCase();
-
-  if (lower.includes("stk1160")) return 100;
-  if (lower.includes("usb 2.0 video")) return 90;
-  if (lower.includes("colpo") || lower.includes("capture")) return 80;
-  if (lower.includes("video grabber") || lower.includes("easycap")) return 70;
-  if (lower.includes("usb video")) return 50;
-
-  return 0;
-};
-
-const Colposcopy = () => {
+const Colposcopy: React.FC = () => {
   const { id } = useParams();
-  const patientId = id ? Number(id) : null;
+  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
-  const [captures, setCaptures] = useState<CaptureEntry[]>([]);
-  const [status, setStatus] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [isCapturing, setIsCapturing] = useState(false);
+  
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [, setHistory] = useState<ClinicalHistory | null>(null);
+  const [form, setForm] = useState<Partial<ColposcopyEntry>>({
+    patient_id: Number(id),
+    fecha_hora: new Date().toISOString(),
+    colposcopia_tipo: "Satisfactoria",
+    cervix: "Eutrófico",
+    zona_transformacion: "Normal",
+    superficie: "Lisa",
+    bordes: "Definidos",
+    epitelio_acetoblanco: "Tenue",
+    prueba_schiller: "Negativo"
+  });
+
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [captures, setCaptures] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [diagramTool, setDiagramTool] = useState<"mark" | "erase">("mark");
+  const [diagramMarks, setDiagramMarks] = useState<{ genitales: DiagramMark[]; cuadrantes: DiagramMark[] }>({
+    genitales: [],
+    cuadrantes: []
+  });
 
   useEffect(() => {
-    void initializeDevices();
-
+    loadData();
+    startCamera();
     return () => {
-      stopCurrentStream();
+      stream?.getTracks().forEach(t => t.stop());
     };
-  }, []);
+  }, [id]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      if (key === "s") {
-        event.preventDefault();
-        void captureFrame();
-      }
-      if (key === "c") {
-        event.preventDefault();
-        cycleDevice();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [devices, selectedDeviceId]);
-
-  const stopCurrentStream = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  const startStream = async (deviceId: string): Promise<boolean> => {
-    stopCurrentStream();
-
+  const loadData = async () => {
+    if (!id) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: { exact: deviceId },
-          width: { ideal: 720 },
-          height: { ideal: 480 },
-        },
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      const p = await api.getPatient(Number(id));
+      setPatient(p);
+      const hList = await api.listClinicalHistoriesForPatient(Number(id));
+      if (hList && hList.length > 0) {
+        const h = hList[0];
+        setHistory(h);
+        // Pre-fill OB/GYN data from history
+        setForm(prev => ({
+          ...prev,
+          menarca: h.menarca,
+          ritmo: h.ritmo,
+          mpf: h.metodo_anticonceptivo,
+          ivsa: h.ivsa,
+          gestas: h.gesta,
+          partos: h.para,
+          abortos: h.abortos,
+          cesareas: h.cesareas,
+          fum: h.fur,
+          ultimo_pap: h.doc
+        }));
       }
-      streamRef.current = stream;
-      setError("");
-      return true;
-    } catch {
-      return false;
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const loadRecentCaptures = async () => {
+  const startCamera = async () => {
     try {
-      if (patientId) {
-        const result = await api.listColposcopiesForPatient(patientId);
-        setCaptures(
-          result.map((entry) => ({
-            filePath: entry.file_path || "",
-            label: entry.file_path?.split("/").pop() ?? "captura.jpg",
-          }))
-        );
-        return;
-      }
-
-      const result = await invoke<string[]>("list_recent_captures", { limit: 12 });
-      setCaptures(
-        result.map((filePath) => ({
-          filePath,
-          label: filePath.split("/").pop() ?? "captura.jpg",
-        }))
-      );
-    } catch {
-      setCaptures([]);
-    }
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      setStream(s);
+      if (videoRef.current) videoRef.current.srcObject = s;
+    } catch (e) { window.alert("No se pudo acceder a la cámara: " + e); }
   };
 
-  const initializeDevices = async () => {
-    try {
-      setStatus("Solicitando acceso a cámaras...");
-      setError("");
-
-      const permissionStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      permissionStream.getTracks().forEach((track) => track.stop());
-
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = allDevices.filter((device) => device.kind === "videoinput");
-      setDevices(videoDevices);
-      await loadRecentCaptures();
-
-      if (videoDevices.length === 0) {
-        setError("No se detectaron cámaras en el sistema.");
-        setStatus("");
-        return;
-      }
-
-      const ranked = [...videoDevices].sort(
-        (a, b) => preferredDeviceScore(b.label) - preferredDeviceScore(a.label)
-      );
-      let selected = "";
-
-      if (ranked.length > 0 && preferredDeviceScore(ranked[0].label) > 0) {
-        selected = ranked[0].deviceId;
-        setStatus(`Intentando conectar colposcopio: ${ranked[0].label || "dispositivo externo"}`);
-
-        try {
-          const linuxDevices = await invoke<LinuxVideoDevice[]>("list_linux_video_devices");
-          const linuxMatch = linuxDevices.find((dev) => {
-            const l = dev.label.toLowerCase();
-            return l.includes("stk1160") || l.includes("usb 2.0 video") || l.includes("easycap");
-          });
-
-          if (linuxMatch) {
-            await invoke("setup_stk1160_linux", { devicePath: linuxMatch.path });
-          }
-        } catch {
-          // Si la configuración Linux falla, continuamos con fallback por navegador.
-        }
-      } else {
-        selected = ranked[0].deviceId;
-        setStatus("No se detectó colposcopio dedicado, iniciando webcam...");
-      }
-
-      if (!(await startStream(selected))) {
-        const fallback = ranked.find((device) => device.deviceId !== selected);
-        if (!fallback || !(await startStream(fallback.deviceId))) {
-          setError("No fue posible iniciar ninguna cámara disponible.");
-          setStatus("");
-          return;
-        }
-        setSelectedDeviceId(fallback.deviceId);
-        setStatus("Conectado en modo respaldo con webcam.");
-        return;
-      }
-
-      setSelectedDeviceId(selected);
-      const selectedLabel = ranked.find((d) => d.deviceId === selected)?.label;
-      if (selectedLabel && preferredDeviceScore(selectedLabel) > 0) {
-        setStatus("Colposcopio conectado correctamente.");
-      } else {
-        setStatus("Conectado con webcam en modo respaldo.");
-      }
-    } catch {
-      setError("No se pudo inicializar la cámara. Revise permisos del sistema.");
-      setStatus("");
-    }
-  };
-
-  const selectDevice = async (deviceId: string) => {
-    const ok = await startStream(deviceId);
-    if (!ok) {
-      setError("No se pudo iniciar la cámara seleccionada.");
-      return;
-    }
-    setSelectedDeviceId(deviceId);
-    setStatus("Fuente de video actualizada.");
-  };
-
-  const cycleDevice = () => {
-    if (devices.length <= 1) return;
-
-    const current = devices.findIndex((d) => d.deviceId === selectedDeviceId);
-    const nextIndex = current === -1 ? 0 : (current + 1) % devices.length;
-    void selectDevice(devices[nextIndex].deviceId);
-  };
-
-  const captureFrame = async () => {
+  const captureFrame = () => {
     if (!videoRef.current) return;
-
-    setIsCapturing(true);
-
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
+    ctx?.drawImage(videoRef.current, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setCaptures(prev => [dataUrl, ...prev].slice(0, 4));
+  };
 
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+  const saveStudy = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      const finalForm = { ...form };
+      if (captures[0]) finalForm.figura1_path = captures[0];
+      if (captures[1]) finalForm.figura2_path = captures[1];
+      if (captures[2]) finalForm.figura3_path = captures[2];
+      if (captures[3]) finalForm.figura4_path = captures[3];
 
-      try {
-        const filePath = await invoke<string>("save_capture_image", { base64Data: dataUrl });
-        if (patientId) {
-          await api.createColposcopy({
-            patient_id: patientId,
-            fecha_hora: new Date().toISOString(),
-            file_path: filePath,
-          });
-        }
-        const label = filePath.split("/").pop() ?? "captura.jpg";
-        setCaptures((prev) => [{ filePath, label }, ...prev].slice(0, 12));
-        setStatus(`Imagen capturada correctamente: ${label}`);
-        setError("");
-      } catch {
-        setError("No se pudo guardar la captura en disco.");
-      }
+      await api.createColposcopy(finalForm as ColposcopyEntry);
+      window.alert("Estudio guardado con éxito");
+      navigate(`/patient/${id}`);
+    } catch (e) { window.alert("Error al guardar: " + e); }
+    finally { setSaving(false); }
+  };
+
+  const updateField = (k: keyof ColposcopyEntry, v: any) => setForm(s => ({ ...s, [k]: v }));
+
+  const handleDiagramClick = (key: "genitales" | "cuadrantes", e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    if (diagramTool === "mark") {
+      const newMark: DiagramMark = { id: `${Date.now()}-${Math.random()}`, x, y };
+      setDiagramMarks(prev => ({ ...prev, [key]: [newMark, ...prev[key]] }));
+      return;
     }
 
-    setIsCapturing(false);
+    const eraseRadiusPx = 14;
+    setDiagramMarks(prev => {
+      const target = prev[key];
+      if (target.length === 0) return prev;
+      let closestIndex = -1;
+      let closestDistance = Infinity;
+      target.forEach((mark, index) => {
+        const dx = (mark.x * rect.width) - (x * rect.width);
+        const dy = (mark.y * rect.height) - (y * rect.height);
+        const distance = Math.hypot(dx, dy);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+      if (closestIndex === -1 || closestDistance > eraseRadiusPx) return prev;
+      return { ...prev, [key]: target.filter((_, index) => index !== closestIndex) };
+    });
   };
 
   return (
     <Container>
-      <Sidebar>
-        <SidebarTitle>Dispositivos</SidebarTitle>
-        <DeviceList>
-          {devices.map((device) => (
-            <DeviceItem
-              key={device.deviceId}
-              active={device.deviceId === selectedDeviceId}
-              onClick={() => void selectDevice(device.deviceId)}
-            >
-              {device.label || `Cámara ${device.deviceId.substring(0, 5)}`}
-            </DeviceItem>
-          ))}
-        </DeviceList>
+      <Header>
+        <h2>Estudio de Colposcopia - {patient?.nombre}</h2>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button onClick={() => navigate(`/patient/${id}`)}>Cancelar</Button>
+          <Button appearance="primary" onClick={saveStudy} isDisabled={saving}>Guardar Estudio</Button>
+        </div>
+      </Header>
 
-        <Button
-          shouldFitContainer
-          onClick={() => void initializeDevices()}
-        >
-          Refrescar Lista
-        </Button>
+      <MainLayout>
+        <Sidebar>
+          <Section>
+            <SectionTitle>Captura en Vivo</SectionTitle>
+            <VideoWrapper>
+              <video ref={videoRef} autoPlay playsInline muted />
+              <CaptureBtn onClick={captureFrame}>Capturar Foto</CaptureBtn>
+            </VideoWrapper>
+            
+            <Gallery>
+               {captures.map((cap, i) => (
+                 <CaptureThumb key={i}>
+                   <img src={cap} alt={`Figura ${i+1}`} />
+                   <span>Figura {i+1}</span>
+                 </CaptureThumb>
+               ))}
+               {captures.length === 0 && <p style={{fontSize:'12px', color:'#666'}}>No hay capturas aún.</p>}
+            </Gallery>
+          </Section>
 
-        <Button
-          shouldFitContainer
-          onClick={cycleDevice}
-        >
-          Cambiar Cámara (C)
-        </Button>
+          <Section>
+             <SectionTitle>Diagramas</SectionTitle>
+             <DiagramToolbar>
+               <Button isSelected={diagramTool === "mark"} onClick={() => setDiagramTool("mark")}>Marcar X azul</Button>
+               <Button isSelected={diagramTool === "erase"} onClick={() => setDiagramTool("erase")}>Borrar marcas</Button>
+             </DiagramToolbar>
+             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
+                <DiagramBox>
+                   <DiagramCanvas onClick={(e) => handleDiagramClick("genitales", e)}>
+                     <img src={diagramaGenitales} alt="Genitales" />
+                     <DiagramOverlay viewBox="0 0 1 1" preserveAspectRatio="none">
+                       {diagramMarks.genitales.map(mark => (
+                         <React.Fragment key={mark.id}>
+                           <line x1={mark.x - 0.03} y1={mark.y - 0.03} x2={mark.x + 0.03} y2={mark.y + 0.03} />
+                           <line x1={mark.x + 0.03} y1={mark.y - 0.03} x2={mark.x - 0.03} y2={mark.y + 0.03} />
+                         </React.Fragment>
+                       ))}
+                     </DiagramOverlay>
+                   </DiagramCanvas>
+                   <p>Genitales Externos</p>
+                </DiagramBox>
+                <DiagramBox>
+                   <DiagramCanvas onClick={(e) => handleDiagramClick("cuadrantes", e)}>
+                     <img src={diagramaCuadrantes} alt="Cuadrantes" />
+                     <DiagramOverlay viewBox="0 0 1 1" preserveAspectRatio="none">
+                       {diagramMarks.cuadrantes.map(mark => (
+                         <React.Fragment key={mark.id}>
+                           <line x1={mark.x - 0.03} y1={mark.y - 0.03} x2={mark.x + 0.03} y2={mark.y + 0.03} />
+                           <line x1={mark.x + 0.03} y1={mark.y - 0.03} x2={mark.x - 0.03} y2={mark.y + 0.03} />
+                         </React.Fragment>
+                       ))}
+                     </DiagramOverlay>
+                   </DiagramCanvas>
+                   <p>Cuadrantes Cervicales</p>
+                </DiagramBox>
+             </div>
+          </Section>
+        </Sidebar>
 
-        {status && (
-          <StatusMessage>
-            <SectionMessage appearance="success">
-              <p>{status}</p>
-            </SectionMessage>
-          </StatusMessage>
-        )}
+        <FormScroll>
+          <Section>
+            <SectionTitle>1. Identificación y Envío</SectionTitle>
+            <Grid columns={2}>
+              <Field><Label>Envío por</Label><Input value={form.envio || ""} onChange={e=>updateField('envio', e.target.value)} /></Field>
+              <Field><Label>Fecha Estudio</Label><Input type="date" value={form.fecha_hora?.split('T')[0] || ""} onChange={e=>updateField('fecha_hora', e.target.value)} /></Field>
+            </Grid>
+          </Section>
 
-        <GalleryTitle>Capturas recientes</GalleryTitle>
-        <GalleryList>
-          {captures.length === 0 && <CaptureHint>Aún no hay capturas guardadas.</CaptureHint>}
-          {captures.map((capture) => (
-            <CaptureItem key={capture.filePath}>
-              <strong>{capture.label}</strong>
-              <CapturePath>{capture.filePath}</CapturePath>
-            </CaptureItem>
-          ))}
-        </GalleryList>
-      </Sidebar>
+          <Section>
+            <SectionTitle>2. Datos Gineco-Obstétricos</SectionTitle>
+            <Grid columns={3}>
+              <Field><Label>Menarca</Label><Input value={form.menarca || ""} onChange={e=>updateField('menarca', e.target.value)} /></Field>
+              <Field><Label>Ritmo</Label><Input value={form.ritmo || ""} onChange={e=>updateField('ritmo', e.target.value)} /></Field>
+              <Field><Label>MPF</Label><Input value={form.mpf || ""} onChange={e=>updateField('mpf', e.target.value)} /></Field>
+              <Field><Label>IVSA</Label><Input value={form.ivsa || ""} onChange={e=>updateField('ivsa', e.target.value)} /></Field>
+              <Field><Label>G</Label><Input value={form.gestas || ""} onChange={e=>updateField('gestas', e.target.value)} /></Field>
+              <Field><Label>P</Label><Input value={form.partos || ""} onChange={e=>updateField('partos', e.target.value)} /></Field>
+              <Field><Label>A</Label><Input value={form.abortos || ""} onChange={e=>updateField('abortos', e.target.value)} /></Field>
+              <Field><Label>C</Label><Input value={form.cesareas || ""} onChange={e=>updateField('cesareas', e.target.value)} /></Field>
+              <Field><Label>FUM</Label><Input type="date" value={form.fum || ""} onChange={e=>updateField('fum', e.target.value)} /></Field>
+              <Field><Label>Último PAP</Label><Input type="date" value={form.ultimo_pap || ""} onChange={e=>updateField('ultimo_pap', e.target.value)} /></Field>
+            </Grid>
+          </Section>
 
-      <MainArea>
-        {error && <SectionMessage appearance="error"><p>{error}</p></SectionMessage>}
-        <VideoWrapper>
-          <StyledVideo ref={videoRef} autoPlay playsInline />
-        </VideoWrapper>
-        <Controls>
-          <Button
-            appearance="primary"
-            onClick={() => void captureFrame()}
-            isDisabled={isCapturing}
-          >
-            {isCapturing ? "Guardando..." : "Capturar Imagen (S)"}
-          </Button>
-        </Controls>
-      </MainArea>
+          <Section>
+            <SectionTitle>3. Datos Colposcópicos</SectionTitle>
+            <Grid columns={2}>
+              <Field><Label>Vulva y Vagina</Label><Input value={form.vulva_vagina || ""} onChange={e=>updateField('vulva_vagina', e.target.value)} /></Field>
+              <Field>
+                <Label>Colposcopia</Label>
+                <Select value={form.colposcopia_tipo || ""} onChange={e=>updateField('colposcopia_tipo', e.target.value)}>
+                  <option>Satisfactoria</option>
+                  <option>No satisfactoria</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Cérvix</Label>
+                <Select value={form.cervix || ""} onChange={e=>updateField('cervix', e.target.value)}>
+                  <option>Eutrófico</option>
+                  <option>Otros</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Zona Transformación</Label>
+                <Select value={form.zona_transformacion || ""} onChange={e=>updateField('zona_transformacion', e.target.value)}>
+                  <option>Normal</option>
+                  <option>Grado 1</option>
+                  <option>Grado 2</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Superficie</Label>
+                <Select value={form.superficie || ""} onChange={e=>updateField('superficie', e.target.value)}>
+                  <option>Lisa</option>
+                  <option>Rugosa</option>
+                  <option>Delgada</option>
+                  <option>Gruesa</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Bordes</Label>
+                <Select value={form.bordes || ""} onChange={e=>updateField('bordes', e.target.value)}>
+                  <option>Definidos</option>
+                  <option>Difusos</option>
+                </Select>
+              </Field>
+            </Grid>
+          </Section>
+
+          <Section>
+            <SectionTitle>4. Conclusión y Diagnóstico</SectionTitle>
+            <Field><Label>Diagnóstico Colposcópico</Label><TextArea value={form.diagnostico_colposcopico || ""} onChange={e=>updateField('diagnostico_colposcopico', e.target.value)} /></Field>
+            <Field style={{marginTop:'10px'}}><Label>Plan de Tratamiento</Label><TextArea value={form.plan_tratamiento || ""} onChange={e=>updateField('plan_tratamiento', e.target.value)} /></Field>
+          </Section>
+        </FormScroll>
+      </MainLayout>
     </Container>
   );
 };
 
-const Container = styled.div`
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 30px;
-  height: calc(100vh - 140px);
-`;
+const Container = styled.div`padding: 24px; background: #f4f5f7; height: 100vh; display: flex; flex-direction: column;`;
+const Header = styled.div`display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;`;
+const MainLayout = styled.div`display: grid; grid-template-columns: 450px 1fr; gap: 24px; flex: 1; overflow: hidden;`;
+const Sidebar = styled.div`display: flex; flex-direction: column; gap: 20px; overflow-y: auto;`;
+const FormScroll = styled.div`background: #fff; border-radius: 8px; border: 1px solid #DFE1E6; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px;`;
+const Section = styled.div``;
+const SectionTitle = styled.h4`margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; color: #172B4D;`;
+const VideoWrapper = styled.div`position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; video { width: 100%; height: 100%; object-fit: cover; }`;
+const CaptureBtn = styled.button`position: absolute; bottom: 12px; right: 12px; padding: 8px 16px; background: #0052CC; color: #fff; border: none; border-radius: 4px; cursor: pointer; &:hover { background: #0065FF; }`;
+const Gallery = styled.div`display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px;`;
+const CaptureThumb = styled.div`display: flex; flex-direction: column; align-items: center; img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px; border: 1px solid #DFE1E6; } span { font-size: 10px; color: #666; margin-top: 2px; }`;
+const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 160px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
+const DiagramToolbar = styled.div`display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;`;
+const DiagramCanvas = styled.div`position: relative; width: 100%; height: 180px; cursor: crosshair; img { width: 100%; height: 100%; object-fit: contain; display: block; }`;
+const DiagramOverlay = styled.svg`position: absolute; inset: 0; pointer-events: none; stroke: #0052CC; stroke-width: 0.015; stroke-linecap: round;`;
+const Grid = styled.div<{ columns?: number }>`display: grid; grid-template-columns: repeat(${props => props.columns || 1}, 1fr); gap: 12px;`;
+const Field = styled.div`display: flex; flex-direction: column; gap: 4px;`;
+const Label = styled.label`font-size: 11px; font-weight: 600; color: #6B778C;`;
+const Input = styled.input`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px;`;
+const Select = styled.select`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; background: #fff;`;
+const TextArea = styled.textarea`padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; min-height: 80px; font-family: inherit; resize: vertical;`;
 
-const Sidebar = styled.div`
-  background: ${token('color.background.neutral.subtle', '#F4F5F7')};
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-right: 1px solid ${token('color.border', '#DFE1E6')};
-`;
-
-const SidebarTitle = styled.h4`
-  margin: 0 0 20px 0;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: ${token('color.text.subtle', '#6B778C')};
-`;
-
-const DeviceList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 30px;
-`;
-
-const DeviceItem = styled.div<{ active: boolean }>`
-  padding: 12px;
-  background: ${props => props.active ? token('color.background.selected', '#DEEBFF') : 'white'};
-  border: 1px solid ${props => props.active ? token('color.border.selected', '#2684FF') : token('color.border', '#DFE1E6')};
-  color: ${props => props.active ? token('color.text.selected', '#0052CC') : 'inherit'};
-  font-size: 14px;
-  cursor: pointer;
-  
-  &:hover {
-    background: ${token('color.background.neutral.subtle', '#EBECF0')};
-  }
-`;
-
-const StatusMessage = styled.div`
-  margin-top: 10px;
-`;
-
-const GalleryTitle = styled.h5`
-  margin: 14px 0 0 0;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: ${token('color.text.subtle', '#6B778C')};
-`;
-
-const GalleryList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 40vh;
-  overflow: auto;
-`;
-
-const CaptureItem = styled.div`
-  background: white;
-  border: 1px solid ${token('color.border', '#DFE1E6')};
-  padding: 10px;
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`;
-
-const CapturePath = styled.span`
-  color: ${token('color.text.subtle', '#6B778C')};
-  word-break: break-all;
-`;
-
-const CaptureHint = styled.p`
-  margin: 0;
-  color: ${token('color.text.subtle', '#6B778C')};
-  font-size: 12px;
-`;
-
-const MainArea = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-`;
-
-const VideoWrapper = styled.div`
-  flex: 1;
-  background: black;
-  border: 1px solid ${token('color.border', '#DFE1E6')};
-  overflow: hidden;
-`;
-
-const StyledVideo = styled.video`
-  width: 100%;
-  height: 100%;
-  background: black;
-  object-fit: contain;
-`;
-
-const Controls = styled.div`
-  display: flex;
-  justify-content: center;
-  padding: 10px 0;
-
-  button {
-    min-height: 60px;
-    min-width: 280px;
-    font-size: 18px;
-  }
-`;
+type DiagramMark = { id: string; x: number; y: number };
 
 export default Colposcopy;

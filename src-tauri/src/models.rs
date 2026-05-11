@@ -168,7 +168,50 @@ pub struct ColposcopyEntry {
     pub id: Option<i32>,
     pub patient_id: i32,
     pub fecha_hora: Option<String>,
-    pub file_path: Option<String>,
+    
+    // Identificación / Envío
+    pub envio: Option<String>,
+
+    // Datos G-O (muchos vienen del historial pero se pueden sobreescribir para el estudio)
+    pub menarca: Option<String>,
+    pub ritmo: Option<String>,
+    pub mpf: Option<String>,
+    pub ivsa: Option<String>,
+    pub gestas: Option<String>,
+    pub partos: Option<String>,
+    pub abortos: Option<String>,
+    pub cesareas: Option<String>,
+    pub fum: Option<String>,
+    pub ultimo_pap: Option<String>,
+
+    // Datos Colposcópicos
+    pub vulva_vagina: Option<String>,
+    pub colposcopia_tipo: Option<String>, // Satisfactoria / No satisfactoria
+    pub cervix: Option<String>,           // Eutrófico / Otros
+    pub zona_transformacion: Option<String>,
+    pub superficie: Option<String>,
+    pub bordes: Option<String>,
+    pub epitelio_acetoblanco: Option<String>,
+    pub prueba_schiller: Option<String>,
+
+    // Observaciones
+    pub patron_vascular_velloso: Option<String>,
+    pub vasos_atipicos: Option<String>,
+    pub puntilleo: Option<String>,
+    pub mosaico: Option<String>,
+
+    // Conclusión
+    pub diagnostico_colposcopico: Option<String>,
+    pub otras_observaciones: Option<String>,
+    pub plan_tratamiento: Option<String>,
+
+    // Imágenes (Rutas locales o nombres de archivo)
+    pub diagrama_genitales_path: Option<String>,
+    pub diagrama_cuadrantes_path: Option<String>,
+    pub figura1_path: Option<String>,
+    pub figura2_path: Option<String>,
+    pub figura3_path: Option<String>,
+    pub figura4_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
