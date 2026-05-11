@@ -12,12 +12,12 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 10, color: '#6B778C' },
   section: { marginBottom: 12 },
   sectionTitle: { fontSize: 11, fontWeight: 'bold', backgroundColor: '#f4f5f7', padding: 4, marginBottom: 6, color: '#172B4D' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  gridItem: { width: '33.33%', marginBottom: 4, flexDirection: 'column' },
-  gridItemHalf: { width: '50%', marginBottom: 4, flexDirection: 'column' },
-  label: { fontSize: 8, fontWeight: 'bold', color: '#6B778C', marginBottom: 1 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
+  gridItem: { width: '33%', marginBottom: 6, paddingRight: 10 },
+  gridItemHalf: { width: '50%', marginBottom: 6, paddingRight: 10 },
+  label: { fontSize: 7.5, fontWeight: 'bold', color: '#6B778C', marginBottom: 1, textTransform: 'uppercase' },
   value: { fontSize: 9, color: '#172B4D' },
-  textArea: { marginTop: 2, padding: 4, borderLeftWidth: 2, borderLeftColor: '#DFE1E6', fontSize: 9 },
+  textArea: { marginTop: 2, padding: 4, borderLeftWidth: 2, borderLeftColor: '#DFE1E6', fontSize: 9, lineHeight: 1.3 },
 });
 
 interface Props {
