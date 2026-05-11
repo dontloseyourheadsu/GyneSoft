@@ -28,6 +28,7 @@
     "@atlaskit/textfield": "^8.3.2",
     "@atlaskit/theme": "^23.2.0",
     "@atlaskit/tokens": "^13.0.3",
+    "@react-pdf/renderer": "^4.5.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@types/styled-components": "^5.1.36",

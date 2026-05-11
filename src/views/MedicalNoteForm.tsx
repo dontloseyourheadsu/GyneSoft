@@ -64,8 +64,11 @@ const MedicalNoteForm: React.FC<Props> = ({ patientId, patientName, initialData,
     }
     setSaving(true);
     try {
-      // For now, always create. In a real app we'd check if we update or create.
-      await api.createMedicalNote(form as MedicalNote);
+      if (form.id) {
+        await api.updateMedicalNote(form.id, form as MedicalNote);
+      } else {
+        await api.createMedicalNote(form as MedicalNote);
+      }
       onSaved?.();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
