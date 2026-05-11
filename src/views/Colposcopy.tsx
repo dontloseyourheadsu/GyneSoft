@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import Button from "@atlaskit/button";
 import { token } from "@atlaskit/tokens";
 import styled from "styled-components";
 import SectionMessage from "@atlaskit/section-message";
+import { api } from "../api";
 
 interface LinuxVideoDevice {
   label: string;
@@ -28,6 +30,8 @@ const preferredDeviceScore = (label: string): number => {
 };
 
 const Colposcopy = () => {
+  const { id } = useParams();
+  const patientId = id ? Number(id) : null;
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -97,6 +101,17 @@ const Colposcopy = () => {
 
   const loadRecentCaptures = async () => {
     try {
+      if (patientId) {
+        const result = await api.listColposcopiesForPatient(patientId);
+        setCaptures(
+          result.map((entry) => ({
+            filePath: entry.file_path || "",
+            label: entry.file_path?.split("/").pop() ?? "captura.jpg",
+          }))
+        );
+        return;
+      }
+
       const result = await invoke<string[]>("list_recent_captures", { limit: 12 });
       setCaptures(
         result.map((filePath) => ({
@@ -214,6 +229,13 @@ const Colposcopy = () => {
 
       try {
         const filePath = await invoke<string>("save_capture_image", { base64Data: dataUrl });
+        if (patientId) {
+          await api.createColposcopy({
+            patient_id: patientId,
+            fecha_hora: new Date().toISOString(),
+            file_path: filePath,
+          });
+        }
         const label = filePath.split("/").pop() ?? "captura.jpg";
         setCaptures((prev) => [{ filePath, label }, ...prev].slice(0, 12));
         setStatus(`Imagen capturada correctamente: ${label}`);

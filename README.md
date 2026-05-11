@@ -54,7 +54,7 @@ Esta ruta evita problemas de watchers del sistema:
 npm run desktop
 ```
 
-Nota: `npm run desktop` usa `cargo run --release` para evitar dependencia de `localhost:1420`.
+Nota: `npm run desktop` construye la UI y la sirve localmente en `http://127.0.0.1:1420` antes de abrir Tauri.
 
 ### Si aparece "Could not connect to localhost: Connection refused"
 

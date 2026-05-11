@@ -95,7 +95,7 @@ const NotesList = () => {
   return (
     <Container>
       <Header>
-        <Title>Registro de Pacientes</Title>
+        <Title>Registro de Notas</Title>
         <Button
           appearance="primary"
           onClick={() => navigate("/edit")}

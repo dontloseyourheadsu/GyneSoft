@@ -1,0 +1,396 @@
+use crate::models::{DbState, Patient, ClinicalHistory, MedicalNote, ColposcopyEntry};
+use rusqlite::params;
+
+#[tauri::command]
+pub fn create_patient(state: tauri::State<DbState>, patient: Patient) -> Result<i64, String> {
+    let conn = state.0.lock().unwrap();
+    let nombre = patient.nombre.trim().to_string();
+    if nombre.is_empty() {
+        return Err("El nombre es obligatorio".to_string());
+    }
+
+    let exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(1) FROM patients WHERE lower(nombre) = lower(?)",
+            [nombre.as_str()],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if exists > 0 {
+        return Err("Ya existe una paciente con ese nombre".to_string());
+    }
+    conn.execute(
+        "INSERT INTO patients (nombre, fecha, sexo, edad, estado_civil, escolaridad, ocupacion, fecha_nacimiento, direccion, telefono) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params![
+            nombre,
+            patient.fecha,
+            patient.sexo,
+            patient.edad,
+            patient.estado_civil,
+            patient.escolaridad,
+            patient.ocupacion,
+            patient.fecha_nacimiento,
+            patient.direccion,
+            patient.telefono
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn get_patient(state: tauri::State<DbState>, id: i32) -> Result<Patient, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id, nombre, fecha, sexo, edad, estado_civil, escolaridad, ocupacion, fecha_nacimiento, direccion, telefono FROM patients WHERE id = ?")
+        .map_err(|e| e.to_string())?;
+    let patient = stmt
+        .query_row([id], |row| {
+            Ok(Patient {
+                id: Some(row.get(0)?),
+                nombre: row.get(1)?,
+                fecha: row.get(2)?,
+                sexo: row.get(3)?,
+                edad: row.get(4)?,
+                estado_civil: row.get(5)?,
+                escolaridad: row.get(6)?,
+                ocupacion: row.get(7)?,
+                fecha_nacimiento: row.get(8)?,
+                direccion: row.get(9)?,
+                telefono: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(patient)
+}
+
+#[tauri::command]
+pub fn list_patients(state: tauri::State<DbState>) -> Result<Vec<Patient>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id, nombre, fecha, sexo, edad, estado_civil, escolaridad, ocupacion, fecha_nacimiento, direccion, telefono FROM patients ORDER BY nombre")
+        .map_err(|e| e.to_string())?;
+    let iter = stmt
+        .query_map([], |row| {
+            Ok(Patient {
+                id: Some(row.get(0)?),
+                nombre: row.get(1)?,
+                fecha: row.get(2)?,
+                sexo: row.get(3)?,
+                edad: row.get(4)?,
+                estado_civil: row.get(5)?,
+                escolaridad: row.get(6)?,
+                ocupacion: row.get(7)?,
+                fecha_nacimiento: row.get(8)?,
+                direccion: row.get(9)?,
+                telefono: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut patients = Vec::new();
+    for p in iter {
+        patients.push(p.map_err(|e| e.to_string())?);
+    }
+    Ok(patients)
+}
+
+#[tauri::command]
+pub fn create_clinical_history(
+    state: tauri::State<DbState>,
+    h: ClinicalHistory,
+) -> Result<i64, String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "INSERT INTO clinical_histories (
+            patient_id, fecha, diabetes, hipertension, cancer, otros_heredo,
+            higiene_personal, calidad_alimentacion, tabaquismo, alcoholismo, grupo_sanguineo_rh, otros_no_patologicos,
+            alergias, quirurgicos, traumaticos, transfusionales, medicos,
+            menarca, telarca, pubarca, ritmo, dismenorrea, ivsa, numero_parejas, metodo_anticonceptivo, gesta, para, cesareas, abortos, productos, fup, doc, fur, fpp, padecimiento_actual,
+            peso, talla, imc, ta, fc, fr, temp, so2,
+            habitus_exterior, cabeza, torax, abdomen, genitales, extremidades,
+            estudios_lab, diagnostico, tratamiento, comentarios
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params![
+            h.patient_id, h.fecha, h.diabetes, h.hipertension, h.cancer, h.otros_heredo,
+            h.higiene_personal, h.calidad_alimentacion, h.tabaquismo, h.alcoholismo, h.grupo_sanguineo_rh, h.otros_no_patologicos,
+            h.alergias, h.quirurgicos, h.traumaticos, h.transfusionales, h.medicos,
+            h.menarca, h.telarca, h.pubarca, h.ritmo, h.dismenorrea, h.ivsa, h.numero_parejas, h.metodo_anticonceptivo, h.gesta, h.para, h.cesareas, h.abortos, h.productos, h.fup, h.doc, h.fur, h.fpp, h.padecimiento_actual,
+            h.peso, h.talla, h.imc, h.ta, h.fc, h.fr, h.temp, h.so2,
+            h.habitus_exterior, h.cabeza, h.torax, h.abdomen, h.genitales, h.extremidades,
+            h.estudios_lab, h.diagnostico, h.tratamiento, h.comentarios
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn get_clinical_history(
+    state: tauri::State<DbState>,
+    id: i32,
+) -> Result<ClinicalHistory, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT * FROM clinical_histories WHERE id = ?")
+        .map_err(|e| e.to_string())?;
+    let history = stmt
+        .query_row([id], |row| {
+            Ok(ClinicalHistory {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha: row.get(2)?,
+                diabetes: row.get(3)?,
+                hipertension: row.get(4)?,
+                cancer: row.get(5)?,
+                otros_heredo: row.get(6)?,
+                higiene_personal: row.get(7)?,
+                calidad_alimentacion: row.get(8)?,
+                tabaquismo: row.get(9)?,
+                alcoholismo: row.get(10)?,
+                grupo_sanguineo_rh: row.get(11)?,
+                otros_no_patologicos: row.get(12)?,
+                alergias: row.get(13)?,
+                quirurgicos: row.get(14)?,
+                traumaticos: row.get(15)?,
+                transfusionales: row.get(16)?,
+                medicos: row.get(17)?,
+                menarca: row.get(18)?,
+                telarca: row.get(19)?,
+                pubarca: row.get(20)?,
+                ritmo: row.get(21)?,
+                dismenorrea: row.get(22)?,
+                ivsa: row.get(23)?,
+                numero_parejas: row.get(24)?,
+                metodo_anticonceptivo: row.get(25)?,
+                gesta: row.get(26)?,
+                para: row.get(27)?,
+                cesareas: row.get(28)?,
+                abortos: row.get(29)?,
+                productos: row.get(30)?,
+                fup: row.get(31)?,
+                doc: row.get(32)?,
+                fur: row.get(33)?,
+                fpp: row.get(34)?,
+                padecimiento_actual: row.get(35)?,
+                peso: row.get(36)?,
+                talla: row.get(37)?,
+                imc: row.get(38)?,
+                ta: row.get(39)?,
+                fc: row.get(40)?,
+                fr: row.get(41)?,
+                temp: row.get(42)?,
+                so2: row.get(43)?,
+                habitus_exterior: row.get(44)?,
+                cabeza: row.get(45)?,
+                torax: row.get(46)?,
+                abdomen: row.get(47)?,
+                genitales: row.get(48)?,
+                extremidades: row.get(49)?,
+                estudios_lab: row.get(50)?,
+                diagnostico: row.get(51)?,
+                tratamiento: row.get(52)?,
+                comentarios: row.get(53)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(history)
+}
+
+#[tauri::command]
+pub fn list_clinical_histories_for_patient(
+    state: tauri::State<DbState>,
+    patient_id: i32,
+) -> Result<Vec<ClinicalHistory>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT * FROM clinical_histories WHERE patient_id = ? ORDER BY fecha DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([patient_id], |row| {
+            Ok(ClinicalHistory {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha: row.get(2)?,
+                diabetes: row.get(3)?,
+                hipertension: row.get(4)?,
+                cancer: row.get(5)?,
+                otros_heredo: row.get(6)?,
+                higiene_personal: row.get(7)?,
+                calidad_alimentacion: row.get(8)?,
+                tabaquismo: row.get(9)?,
+                alcoholismo: row.get(10)?,
+                grupo_sanguineo_rh: row.get(11)?,
+                otros_no_patologicos: row.get(12)?,
+                alergias: row.get(13)?,
+                quirurgicos: row.get(14)?,
+                traumaticos: row.get(15)?,
+                transfusionales: row.get(16)?,
+                medicos: row.get(17)?,
+                menarca: row.get(18)?,
+                telarca: row.get(19)?,
+                pubarca: row.get(20)?,
+                ritmo: row.get(21)?,
+                dismenorrea: row.get(22)?,
+                ivsa: row.get(23)?,
+                numero_parejas: row.get(24)?,
+                metodo_anticonceptivo: row.get(25)?,
+                gesta: row.get(26)?,
+                para: row.get(27)?,
+                cesareas: row.get(28)?,
+                abortos: row.get(29)?,
+                productos: row.get(30)?,
+                fup: row.get(31)?,
+                doc: row.get(32)?,
+                fur: row.get(33)?,
+                fpp: row.get(34)?,
+                padecimiento_actual: row.get(35)?,
+                peso: row.get(36)?,
+                talla: row.get(37)?,
+                imc: row.get(38)?,
+                ta: row.get(39)?,
+                fc: row.get(40)?,
+                fr: row.get(41)?,
+                temp: row.get(42)?,
+                so2: row.get(43)?,
+                habitus_exterior: row.get(44)?,
+                cabeza: row.get(45)?,
+                torax: row.get(46)?,
+                abdomen: row.get(47)?,
+                genitales: row.get(48)?,
+                extremidades: row.get(49)?,
+                estudios_lab: row.get(50)?,
+                diagnostico: row.get(51)?,
+                tratamiento: row.get(52)?,
+                comentarios: row.get(53)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn create_medical_note(state: tauri::State<DbState>, n: MedicalNote) -> Result<i64, String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "INSERT INTO medical_notes (patient_id, fecha_hora, notas, peso, talla, ta, fc, fr, temp, dx, plan, firma, especialidad, cedula_prof, cedula_especialidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params![
+            n.patient_id, n.fecha_hora, n.notas, n.peso, n.talla, n.ta, n.fc, n.fr, n.temp, n.dx, n.plan, n.firma, n.especialidad, n.cedula_prof, n.cedula_especialidad
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn list_medical_notes_for_patient(
+    state: tauri::State<DbState>,
+    patient_id: i32,
+) -> Result<Vec<MedicalNote>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id, patient_id, fecha_hora, notas, peso, talla, ta, fc, fr, temp, dx, plan, firma, especialidad, cedula_prof, cedula_especialidad FROM medical_notes WHERE patient_id = ? ORDER BY fecha_hora DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([patient_id], |row| {
+            Ok(MedicalNote {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha_hora: row.get(2)?,
+                notas: row.get(3)?,
+                peso: row.get(4)?,
+                talla: row.get(5)?,
+                ta: row.get(6)?,
+                fc: row.get(7)?,
+                fr: row.get(8)?,
+                temp: row.get(9)?,
+                dx: row.get(10)?,
+                plan: row.get(11)?,
+                firma: row.get(12)?,
+                especialidad: row.get(13)?,
+                cedula_prof: row.get(14)?,
+                cedula_especialidad: row.get(15)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn get_medical_note(state: tauri::State<DbState>, id: i32) -> Result<MedicalNote, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id, patient_id, fecha_hora, notas, peso, talla, ta, fc, fr, temp, dx, plan, firma, especialidad, cedula_prof, cedula_especialidad FROM medical_notes WHERE id = ?")
+        .map_err(|e| e.to_string())?;
+    let note = stmt
+        .query_row([id], |row| {
+            Ok(MedicalNote {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha_hora: row.get(2)?,
+                notas: row.get(3)?,
+                peso: row.get(4)?,
+                talla: row.get(5)?,
+                ta: row.get(6)?,
+                fc: row.get(7)?,
+                fr: row.get(8)?,
+                temp: row.get(9)?,
+                dx: row.get(10)?,
+                plan: row.get(11)?,
+                firma: row.get(12)?,
+                especialidad: row.get(13)?,
+                cedula_prof: row.get(14)?,
+                cedula_especialidad: row.get(15)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(note)
+}
+
+#[tauri::command]
+pub fn create_colposcopy(state: tauri::State<DbState>, c: ColposcopyEntry) -> Result<i64, String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute(
+        "INSERT INTO colposcopies (patient_id, fecha_hora, file_path) VALUES (?, ?, ?)",
+        params![c.patient_id, c.fecha_hora, c.file_path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn list_colposcopies_for_patient(
+    state: tauri::State<DbState>,
+    patient_id: i32,
+) -> Result<Vec<ColposcopyEntry>, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id, patient_id, fecha_hora, file_path FROM colposcopies WHERE patient_id = ? ORDER BY fecha_hora DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([patient_id], |row| {
+            Ok(ColposcopyEntry {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha_hora: row.get(2)?,
+                file_path: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}

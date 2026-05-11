@@ -8,8 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "desktop": "npm run build && cd src-tauri && cargo run --release",
-    "desktop:debug": "npm run build && cd src-tauri && cargo run"
+    "desktop": "node scripts/desktop.mjs",
+    "desktop:debug": "node scripts/desktop.mjs --debug"
   },
   "dependencies": {
     "@atlaskit/button": "^23.11.4",

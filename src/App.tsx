@@ -5,6 +5,8 @@ import { token } from "@atlaskit/tokens";
 import styled from "styled-components";
 import Home from "./views/Home";
 import NotesList from "./views/NotesList";
+import PatientsList from "./views/PatientsList";
+import PatientDashboard from "./views/PatientDashboard";
 import NoteEditor from "./views/NoteEditor";
 import Colposcopy from "./views/Colposcopy";
 
@@ -13,17 +15,14 @@ const AppHeader = () => {
 
   return (
     <HeaderContainer>
-      <HeaderLeft>
+          <HeaderLeft>
         <BrandTitle>GyneSoft</BrandTitle>
         <NavGroup>
           <Button appearance="subtle" onClick={() => navigate("/")}>
             Inicio
           </Button>
-          <Button appearance="subtle" onClick={() => navigate("/notes")}>
+          <Button appearance="subtle" onClick={() => navigate("/patients")}> 
             Pacientes
-          </Button>
-          <Button appearance="subtle" onClick={() => navigate("/colpo")}>
-            Colposcopia
           </Button>
         </NavGroup>
       </HeaderLeft>
@@ -79,8 +78,10 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/notes" element={<NotesList />} />
+              <Route path="/patients" element={<PatientsList />} />
+              <Route path="/patient/:id" element={<PatientDashboard />} />
+              <Route path="/patient/:id/colposcopy" element={<Colposcopy />} />
               <Route path="/edit" element={<NoteEditor />} />
-              <Route path="/colpo" element={<Colposcopy />} />
             </Routes>
           </PageBody>
         </Main>
