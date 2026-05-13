@@ -24,6 +24,8 @@ pub fn run() {
             commands::delete_note,
             commands::setup_stk1160_linux,
             commands::list_linux_video_devices,
+            commands::list_all_cameras,
+            commands::test_camera_capture,
             commands::save_capture_image,
             commands::list_recent_captures,
             // patients / histories / notes
@@ -43,6 +45,9 @@ pub fn run() {
             commands::list_medical_notes_for_patient,
             commands::get_medical_note,
             commands::create_colposcopy,
+            commands::get_colposcopy,
+            commands::update_colposcopy,
+            commands::delete_colposcopy,
             commands::list_colposcopies_for_patient
         ])
         .run(tauri::generate_context!())

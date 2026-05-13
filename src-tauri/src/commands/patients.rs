@@ -468,27 +468,160 @@ pub fn get_medical_note(state: tauri::State<DbState>, id: i32) -> Result<Medical
 
 #[tauri::command]
 pub fn create_colposcopy(state: tauri::State<DbState>, c: ColposcopyEntry) -> Result<i64, String> {
-    let conn = state.0.lock().unwrap();
-    conn.execute(
+    let mut conn = state.0.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    tx.execute(
         "INSERT INTO colposcopies (
             patient_id, fecha_hora, envio,
             menarca, ritmo, mpf, ivsa, gestas, partos, abortos, cesareas, fum, ultimo_pap,
             vulva_vagina, colposcopia_tipo, cervix, zona_transformacion, superficie, bordes, epitelio_acetoblanco, prueba_schiller,
             patron_vascular_velloso, vasos_atipicos, puntilleo, mosaico,
             diagnostico_colposcopico, otras_observaciones, plan_tratamiento,
-            diagrama_genitales_path, diagrama_cuadrantes_path, figura1_path, figura2_path, figura3_path, figura4_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            diagrama_genitales_path, diagrama_cuadrantes_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.patient_id, c.fecha_hora, c.envio,
             c.menarca, c.ritmo, c.mpf, c.ivsa, c.gestas, c.partos, c.abortos, c.cesareas, c.fum, c.ultimo_pap,
             c.vulva_vagina, c.colposcopia_tipo, c.cervix, c.zona_transformacion, c.superficie, c.bordes, c.epitelio_acetoblanco, c.prueba_schiller,
             c.patron_vascular_velloso, c.vasos_atipicos, c.puntilleo, c.mosaico,
             c.diagnostico_colposcopico, c.otras_observaciones, c.plan_tratamiento,
-            c.diagrama_genitales_path, c.diagrama_cuadrantes_path, c.figura1_path, c.figura2_path, c.figura3_path, c.figura4_path
+            c.diagrama_genitales_path, c.diagrama_cuadrantes_path
         ],
     )
     .map_err(|e| e.to_string())?;
-    Ok(conn.last_insert_rowid())
+
+    let col_id = tx.last_insert_rowid();
+
+    if let Some(caps) = c.captures {
+        for (i, path) in caps.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO colposcopy_images (colposcopy_id, path, position) VALUES (?, ?, ?)",
+                params![col_id, path, i as i32],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(col_id)
+}
+
+#[tauri::command]
+pub fn update_colposcopy(
+    state: tauri::State<DbState>,
+    id: i32,
+    c: ColposcopyEntry,
+) -> Result<(), String> {
+    let mut conn = state.0.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "UPDATE colposcopies SET 
+            fecha_hora = ?, envio = ?,
+            menarca = ?, ritmo = ?, mpf = ?, ivsa = ?, gestas = ?, partos = ?, abortos = ?, cesareas = ?, fum = ?, ultimo_pap = ?,
+            vulva_vagina = ?, colposcopia_tipo = ?, cervix = ?, zona_transformacion = ?, superficie = ?, bordes = ?, epitelio_acetoblanco = ?, prueba_schiller = ?,
+            patron_vascular_velloso = ?, vasos_atipicos = ?, puntilleo = ?, mosaico = ?,
+            diagnostico_colposcopico = ?, otras_observaciones = ?, plan_tratamiento = ?,
+            diagrama_genitales_path = ?, diagrama_cuadrantes_path = ?
+        WHERE id = ?",
+        params![
+            c.fecha_hora, c.envio,
+            c.menarca, c.ritmo, c.mpf, c.ivsa, c.gestas, c.partos, c.abortos, c.cesareas, c.fum, c.ultimo_pap,
+            c.vulva_vagina, c.colposcopia_tipo, c.cervix, c.zona_transformacion, c.superficie, c.bordes, c.epitelio_acetoblanco, c.prueba_schiller,
+            c.patron_vascular_velloso, c.vasos_atipicos, c.puntilleo, c.mosaico,
+            c.diagnostico_colposcopico, c.otras_observaciones, c.plan_tratamiento,
+            c.diagrama_genitales_path, c.diagrama_cuadrantes_path,
+            id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Clear old images and insert new ones to maintain order
+    tx.execute("DELETE FROM colposcopy_images WHERE colposcopy_id = ?", [id])
+        .map_err(|e| e.to_string())?;
+
+    if let Some(caps) = c.captures {
+        for (i, path) in caps.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO colposcopy_images (colposcopy_id, path, position) VALUES (?, ?, ?)",
+                params![id, path, i as i32],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_colposcopy(state: tauri::State<DbState>, id: i32) -> Result<(), String> {
+    let conn = state.0.lock().unwrap();
+    conn.execute("DELETE FROM colposcopies WHERE id = ?", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_colposcopy(state: tauri::State<DbState>, id: i32) -> Result<ColposcopyEntry, String> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn
+        .prepare("SELECT * FROM colposcopies WHERE id = ?")
+        .map_err(|e| e.to_string())?;
+    
+    let mut entry = stmt
+        .query_row([id], |row| {
+            Ok(ColposcopyEntry {
+                id: Some(row.get(0)?),
+                patient_id: row.get(1)?,
+                fecha_hora: row.get(2)?,
+                envio: row.get(3)?,
+                menarca: row.get(4)?,
+                ritmo: row.get(5)?,
+                mpf: row.get(6)?,
+                ivsa: row.get(7)?,
+                gestas: row.get(8)?,
+                partos: row.get(9)?,
+                abortos: row.get(10)?,
+                cesareas: row.get(11)?,
+                fum: row.get(12)?,
+                ultimo_pap: row.get(13)?,
+                vulva_vagina: row.get(14)?,
+                colposcopia_tipo: row.get(15)?,
+                cervix: row.get(16)?,
+                zona_transformacion: row.get(17)?,
+                superficie: row.get(18)?,
+                bordes: row.get(19)?,
+                epitelio_acetoblanco: row.get(20)?,
+                prueba_schiller: row.get(21)?,
+                patron_vascular_velloso: row.get(22)?,
+                vasos_atipicos: row.get(23)?,
+                puntilleo: row.get(24)?,
+                mosaico: row.get(25)?,
+                diagnostico_colposcopico: row.get(26)?,
+                otras_observaciones: row.get(27)?,
+                plan_tratamiento: row.get(28)?,
+                diagrama_genitales_path: row.get(29)?,
+                diagrama_cuadrantes_path: row.get(30)?,
+                captures: None,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    // Load captures
+    let mut img_stmt = conn.prepare("SELECT path FROM colposcopy_images WHERE colposcopy_id = ? ORDER BY position")
+        .map_err(|e| e.to_string())?;
+    let img_iter = img_stmt.query_map([id], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    
+    let mut caps = Vec::new();
+    for img in img_iter {
+        caps.push(img.map_err(|e| e.to_string())?);
+    }
+    entry.captures = Some(caps);
+
+    Ok(entry)
 }
 
 #[tauri::command]
@@ -534,17 +667,28 @@ pub fn list_colposcopies_for_patient(
                 plan_tratamiento: row.get(28)?,
                 diagrama_genitales_path: row.get(29)?,
                 diagrama_cuadrantes_path: row.get(30)?,
-                figura1_path: row.get(31)?,
-                figura2_path: row.get(32)?,
-                figura3_path: row.get(33)?,
-                figura4_path: row.get(34)?,
+                captures: None,
             })
         })
         .map_err(|e| e.to_string())?;
 
     let mut out = Vec::new();
     for r in rows {
-        out.push(r.map_err(|e| e.to_string())?);
+        let mut entry = r.map_err(|e| e.to_string())?;
+        
+        // Load captures for each entry in the list
+        let mut img_stmt = conn.prepare("SELECT path FROM colposcopy_images WHERE colposcopy_id = ? ORDER BY position")
+            .map_err(|e| e.to_string())?;
+        let img_iter = img_stmt.query_map([entry.id.unwrap()], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        
+        let mut caps = Vec::new();
+        for img in img_iter {
+            caps.push(img.map_err(|e| e.to_string())?);
+        }
+        entry.captures = Some(caps);
+        
+        out.push(entry);
     }
     Ok(out)
 }

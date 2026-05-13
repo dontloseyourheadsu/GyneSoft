@@ -22,5 +22,16 @@ export const api = {
   getMedicalNote: (id: number) => invoke<MedicalNote>("get_medical_note", { id }),
 
   createColposcopy: (c: ColposcopyEntry) => invoke<number>("create_colposcopy", { c }),
+  updateColposcopy: (id: number, c: ColposcopyEntry) => invoke<void>("update_colposcopy", { id, c }),
+  deleteColposcopy: (id: number) => invoke<void>("delete_colposcopy", { id }),
+  getColposcopy: (id: number) => invoke<ColposcopyEntry>("get_colposcopy", { id }),
   listColposcopiesForPatient: (patientId: number) => invoke<ColposcopyEntry[]>("list_colposcopies_for_patient", { patientId }),
+
+  // Video Commands
+  listLinuxVideoDevices: () => invoke<any[]>("list_linux_video_devices"),
+  listAllCameras: () => invoke<any[]>("list_all_cameras"),
+  testCameraCapture: (path: string) => invoke<string>("test_camera_capture", { path }),
+  setupStk1160Linux: (devicePath: string) => invoke<string>("setup_stk1160_linux", { devicePath }),
+  saveCaptureImage: (base64Data: string) => invoke<string>("save_capture_image", { base64Data }),
+  listRecentCaptures: (limit?: number) => invoke<string[]>("list_recent_captures", { limit }),
 };

@@ -12,6 +12,7 @@ import PatientsList from "./views/PatientsList";
 import PatientDashboard from "./views/PatientDashboard";
 import NoteEditor from "./views/NoteEditor";
 import Colposcopy from "./views/Colposcopy";
+import PedalDiagnostic from "./views/PedalDiagnostic";
 
 const AppHeader = () => {
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ const AppHeader = () => {
           </Button>
           <Button appearance="subtle" onClick={() => navigate("/config")}> 
             Configuración
+          </Button>
+          <Button appearance="subtle" onClick={() => navigate("/debug/pedal")}> 
+            Test Pedal
           </Button>
         </NavGroup>
       </HeaderLeft>
@@ -97,6 +101,7 @@ function App() {
               <Route path="/patient/:id" element={<PatientDashboard />} />
               <Route path="/patient/:id/colposcopy" element={<Colposcopy />} />
               <Route path="/edit" element={<NoteEditor />} />
+              <Route path="/debug/pedal" element={<PedalDiagnostic />} />
             </Routes>
           </PageBody>
         </Main>
