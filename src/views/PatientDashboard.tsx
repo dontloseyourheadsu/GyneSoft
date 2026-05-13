@@ -10,6 +10,7 @@ import MedicalNoteForm from "./MedicalNoteForm";
 import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
 import { ClinicalHistoryPDF } from "../components/ClinicalHistoryPDF";
 import { MedicalNotePDF } from "../components/MedicalNotePDF";
+import { ColposcopyPDF } from "../components/ColposcopyPDF";
 
 const PatientDashboard: React.FC = () => {
   const { id } = useParams();
@@ -36,7 +37,6 @@ const PatientDashboard: React.FC = () => {
       const p = await api.getPatient(pid);
       setPatient(p);
       const hList = await api.listClinicalHistoriesForPatient(pid);
-      console.log("Histories loaded:", hList);
       setHistory(hList && hList.length > 0 ? hList[0] : null);
       const n = await api.listMedicalNotesForPatient(pid);
       setNotes(n || []);
@@ -56,6 +56,18 @@ const PatientDashboard: React.FC = () => {
         load();
       } catch (e) {
         window.alert("Error al eliminar la nota.");
+        console.error(e);
+      }
+    }
+  };
+
+  const handleDeleteColposcopy = async (cid: number) => {
+    if (window.confirm("¿Está seguro de que desea eliminar este estudio de colposcopia?")) {
+      try {
+        await api.deleteColposcopy(cid);
+        load();
+      } catch (e) {
+        window.alert("Error al eliminar el estudio.");
         console.error(e);
       }
     }
@@ -148,18 +160,22 @@ const PatientDashboard: React.FC = () => {
                 {colposcopies.length === 0 && (
                   <tr><td colSpan={3}>No hay estudios de colposcopia.</td></tr>
                 )}
-                {colposcopies.map(c => (
-                  <tr key={c.id}>
-                    <td>{c.fecha_hora || "S/F"}</td>
-                    <td>1 imagen</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <TableActions>
-                        <Button appearance="subtle">Ver</Button>
-                        <Button appearance="subtle">Imprimir</Button>
-                      </TableActions>
-                    </td>
-                  </tr>
-                ))}
+                {colposcopies.map(c => {
+                  const capCount = [c.figura1_path, c.figura2_path, c.figura3_path, c.figura4_path].filter(Boolean).length;
+                  return (
+                    <tr key={c.id}>
+                      <td>{c.fecha_hora?.split('T')[0] || "S/F"}</td>
+                      <td>{capCount} {capCount === 1 ? 'imagen' : 'imágenes'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <TableActions>
+                          <Button appearance="subtle" onClick={() => setActiveForm({ type: "colposcopy", mode: "view", data: c })}>Ver / Imprimir</Button>
+                          <Button appearance="subtle" onClick={() => navigate(`/patient/${id}/colposcopy?studyId=${c.id}`)}>Editar</Button>
+                          <Button appearance="subtle" onClick={() => c.id && handleDeleteColposcopy(c.id)}>Borrar</Button>
+                        </TableActions>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           </CardContent>
@@ -172,7 +188,7 @@ const PatientDashboard: React.FC = () => {
           <ModalContainer>
             <ModalHeader>
               <h3>
-                {activeForm.type === "history" ? "Historial Clínico" : "Nota Médica"} 
+                {activeForm.type === "history" ? "Historial Clínico" : activeForm.type === "note" ? "Nota Médica" : "Estudio de Colposcopia"} 
                 ({activeForm.mode === "view" ? "Vista Previa" : activeForm.mode === "edit" ? "Editar" : "Crear"})
               </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -194,6 +210,15 @@ const PatientDashboard: React.FC = () => {
                     )}
                   </PDFDownloadLink>
                 )}
+                {activeForm.mode === "view" && activeForm.type === "colposcopy" && (
+                  <PDFDownloadLink document={<ColposcopyPDF patient={patient} study={activeForm.data} />} fileName={`Colposcopia_${patient?.nombre}.pdf`}>
+                    {({ loading }) => (
+                      <Button appearance="primary" isDisabled={loading}>
+                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
+                      </Button>
+                    )}
+                  </PDFDownloadLink>
+                )}
                 <Button appearance="subtle" onClick={() => setActiveForm(null)}>Cerrar</Button>
               </div>
             </ModalHeader>
@@ -203,8 +228,10 @@ const PatientDashboard: React.FC = () => {
                   <PDFViewer width="100%" height="100%" showToolbar={false} style={{ border: 'none' }}>
                     {activeForm.type === "history" ? (
                       <ClinicalHistoryPDF patient={patient} history={activeForm.data} />
-                    ) : (
+                    ) : activeForm.type === "note" ? (
                       <MedicalNotePDF patient={patient} note={activeForm.data} />
+                    ) : (
+                      <ColposcopyPDF patient={patient} study={activeForm.data} />
                     )}
                   </PDFViewer>
                 </div>

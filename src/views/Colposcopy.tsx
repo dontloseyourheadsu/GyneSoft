@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@atlaskit/button";
 import styled from "styled-components";
 import { api } from "../api";
@@ -9,6 +9,8 @@ import type { Patient, ColposcopyEntry, ClinicalHistory } from "../types";
 
 const Colposcopy: React.FC = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const studyId = searchParams.get("studyId");
   const navigate = useNavigate();
   
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -39,30 +41,43 @@ const Colposcopy: React.FC = () => {
     loadData();
     startCamera();
     return () => { streamActiveRef.current = false; };
-  }, [id]);
+  }, [id, studyId]);
 
   const loadData = async () => {
     if (!id) return;
     try {
       const p = await api.getPatient(Number(id));
       setPatient(p);
-      const hList = await api.listClinicalHistoriesForPatient(Number(id));
-      if (hList && hList.length > 0) {
-        const h = hList[0];
-        setHistory(h);
-        setForm(prev => ({
-          ...prev,
-          menarca: h.menarca,
-          ritmo: h.ritmo,
-          mpf: h.metodo_anticonceptivo,
-          ivsa: h.ivsa,
-          gestas: h.gesta,
-          partos: h.para,
-          abortos: h.abortos,
-          cesareas: h.cesareas,
-          fum: h.fur,
-          ultimo_pap: h.doc
-        }));
+
+      if (studyId) {
+        const study = await api.getColposcopy(Number(studyId));
+        setForm(study);
+        const caps = [
+          study.figura1_path,
+          study.figura2_path,
+          study.figura3_path,
+          study.figura4_path
+        ].filter(Boolean) as string[];
+        setCaptures(caps);
+      } else {
+        const hList = await api.listClinicalHistoriesForPatient(Number(id));
+        if (hList && hList.length > 0) {
+          const h = hList[0];
+          setHistory(h);
+          setForm(prev => ({
+            ...prev,
+            menarca: h.menarca,
+            ritmo: h.ritmo,
+            mpf: h.metodo_anticonceptivo,
+            ivsa: h.ivsa,
+            gestas: h.gesta,
+            partos: h.para,
+            abortos: h.abortos,
+            cesareas: h.cesareas,
+            fum: h.fur,
+            ultimo_pap: h.doc
+          }));
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -79,7 +94,6 @@ const Colposcopy: React.FC = () => {
         }
       } catch (e) { console.warn("Auto-config STK failed:", e); }
 
-      // We prioritize Rust stream as it's proven to work
       streamActiveRef.current = true;
       runRustStream(stkPath);
     } catch (e) { window.alert("No se pudo acceder a la cámara: " + e); }
@@ -100,18 +114,33 @@ const Colposcopy: React.FC = () => {
     }
   };
 
+  const moveCapture = (index: number, direction: 'up' | 'down') => {
+    const newCaptures = [...captures];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newCaptures.length) return;
+    
+    [newCaptures[index], newCaptures[targetIndex]] = [newCaptures[targetIndex], newCaptures[index]];
+    setCaptures(newCaptures);
+  };
+
   const saveStudy = async () => {
     if (!id) return;
     setSaving(true);
     try {
       const finalForm = { ...form };
-      if (captures[0]) finalForm.figura1_path = captures[0];
-      if (captures[1]) finalForm.figura2_path = captures[1];
-      if (captures[2]) finalForm.figura3_path = captures[2];
-      if (captures[3]) finalForm.figura4_path = captures[3];
+      // Assign captures in order (up to 4)
+      finalForm.figura1_path = captures[0] || null;
+      finalForm.figura2_path = captures[1] || null;
+      finalForm.figura3_path = captures[2] || null;
+      finalForm.figura4_path = captures[3] || null;
 
-      await api.createColposcopy(finalForm as ColposcopyEntry);
-      window.alert("Estudio guardado con éxito");
+      if (studyId) {
+        await api.updateColposcopy(Number(studyId), finalForm as ColposcopyEntry);
+        window.alert("Estudio actualizado con éxito");
+      } else {
+        await api.createColposcopy(finalForm as ColposcopyEntry);
+        window.alert("Estudio guardado con éxito");
+      }
       navigate(`/patient/${id}`);
     } catch (e) { window.alert("Error al guardar: " + e); }
     finally { setSaving(false); }
@@ -213,17 +242,26 @@ const Colposcopy: React.FC = () => {
           </Section>
 
           <Section>
-            <SectionTitle>Capturas Recientes</SectionTitle>
+            <SectionTitle>Capturas Ordenables</SectionTitle>
             <GalleryWrapper>
-              <GalleryGrid>
+              <GalleryList>
                 {captures.map((cap, i) => (
-                  <CaptureThumb key={i}>
+                  <CaptureItem key={i}>
+                    <Controls>
+                      <IconButton onClick={() => moveCapture(i, 'up')} disabled={i === 0}>
+                        <span role="img" aria-label="Up">▲</span>
+                      </IconButton>
+                      <IconButton onClick={() => moveCapture(i, 'down')} disabled={i === captures.length - 1}>
+                        <span role="img" aria-label="Down">▼</span>
+                      </IconButton>
+                    </Controls>
                     <img src={cap} alt={`Captura ${i+1}`} />
-                    <span>Captura {i+1}</span>
-                  </CaptureThumb>
+                    <span style={{flex: 1, textAlign:'center'}}>Captura {i+1}</span>
+                    <Button appearance="subtle" onClick={() => setCaptures(c => c.filter((_, idx) => idx !== i))}>X</Button>
+                  </CaptureItem>
                 ))}
-                {captures.length === 0 && <p style={{fontSize:'12px', color:'#666', gridColumn:'1/-1', textAlign:'center', padding:'20px'}}>No hay capturas aún.</p>}
-              </GalleryGrid>
+                {captures.length === 0 && <p style={{fontSize:'12px', color:'#666', textAlign:'center', padding:'20px'}}>No hay capturas aún.</p>}
+              </GalleryList>
             </GalleryWrapper>
           </Section>
         </Sidebar>
@@ -295,12 +333,21 @@ const Colposcopy: React.FC = () => {
                   <option>Difusos</option>
                 </Select>
               </Field>
+              <Field><Label>Epitelio Acetoblanco</Label><Input value={form.epitelio_acetoblanco || ""} onChange={e=>updateField('epitelio_acetoblanco', e.target.value)} /></Field>
+              <Field><Label>Prueba Schiller</Label><Input value={form.prueba_schiller || ""} onChange={e=>updateField('prueba_schiller', e.target.value)} /></Field>
             </Grid>
           </Section>
 
           <Section>
-            <SectionTitle>4. Conclusión y Diagnóstico</SectionTitle>
-            <Field><Label>Diagnóstico Colposcópico</Label><TextArea value={form.diagnostico_colposcopico || ""} onChange={e=>updateField('diagnostico_colposcopico', e.target.value)} /></Field>
+            <SectionTitle>4. Observaciones y Conclusión</SectionTitle>
+            <Grid columns={2}>
+              <Field><Label>Patrón Vascular Velloso</Label><Input value={form.patron_vascular_velloso || ""} onChange={e=>updateField('patron_vascular_velloso', e.target.value)} /></Field>
+              <Field><Label>Vasos Atípicos</Label><Input value={form.vasos_atipicos || ""} onChange={e=>updateField('vasos_atipicos', e.target.value)} /></Field>
+              <Field><Label>Puntilleo</Label><Input value={form.puntilleo || ""} onChange={e=>updateField('puntilleo', e.target.value)} /></Field>
+              <Field><Label>Mosaico</Label><Input value={form.mosaico || ""} onChange={e=>updateField('mosaico', e.target.value)} /></Field>
+            </Grid>
+            <Field style={{marginTop:'10px'}}><Label>Diagnóstico Colposcópico</Label><TextArea value={form.diagnostico_colposcopico || ""} onChange={e=>updateField('diagnostico_colposcopico', e.target.value)} /></Field>
+            <Field style={{marginTop:'10px'}}><Label>Otras Observaciones</Label><TextArea value={form.otras_observaciones || ""} onChange={e=>updateField('otras_observaciones', e.target.value)} /></Field>
             <Field style={{marginTop:'10px'}}><Label>Plan de Tratamiento</Label><TextArea value={form.plan_tratamiento || ""} onChange={e=>updateField('plan_tratamiento', e.target.value)} /></Field>
           </Section>
         </FormScroll>
@@ -319,9 +366,11 @@ const SectionTitle = styled.h4`margin: 0 0 16px 0; padding-bottom: 8px; border-b
 const VideoWrapper = styled.div`position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; img { width: 100%; height: 100%; object-fit: contain; }`;
 const CaptureBtn = styled.button`position: absolute; bottom: 12px; right: 12px; padding: 8px 16px; background: #0052CC; color: #fff; border: none; border-radius: 4px; cursor: pointer; &:hover { background: #0065FF; }`;
 
-const GalleryWrapper = styled.div`background: #fafbfc; border: 1px solid #DFE1E6; border-radius: 8px; height: 320px; overflow-y: auto; padding: 12px;`;
-const GalleryGrid = styled.div`display: grid; grid-template-columns: 1fr 1fr; gap: 12px;`;
-const CaptureThumb = styled.div`display: flex; flex-direction: column; align-items: center; background: #fff; border: 1px solid #DFE1E6; border-radius: 4px; padding: 4px; img { width: 100%; aspect-ratio: 1.5/1; object-fit: contain; border-radius: 2px; } span { font-size: 10px; color: #666; margin-top: 4px; }`;
+const GalleryWrapper = styled.div`background: #fafbfc; border: 1px solid #DFE1E6; border-radius: 8px; height: 380px; overflow-y: auto; padding: 12px;`;
+const GalleryList = styled.div`display: flex; flex-direction: column; gap: 12px;`;
+const CaptureItem = styled.div`display: flex; align-items: center; background: #fff; border: 1px solid #DFE1E6; border-radius: 4px; padding: 8px; gap: 12px; img { height: 120px; aspect-ratio: 1.5/1; object-fit: contain; border-radius: 2px; border: 1px solid #eee; } span { font-size: 11px; font-weight: 600; color: #172B4D; }`;
+const Controls = styled.div`display: flex; flex-direction: column; gap: 4px;`;
+const IconButton = styled.button`background: #f4f5f7; border: 1px solid #DFE1E6; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px; &:hover:not(:disabled) { background: #ebecf0; } &:disabled { opacity: 0.3; cursor: not-allowed; }`;
 
 const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 160px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
 const DiagramToolbar = styled.div`display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;`;
