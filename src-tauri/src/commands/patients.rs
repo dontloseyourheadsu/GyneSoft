@@ -478,15 +478,17 @@ pub fn create_colposcopy(state: tauri::State<DbState>, c: ColposcopyEntry) -> Re
             vulva_vagina, colposcopia_tipo, cervix, zona_transformacion, superficie, bordes, epitelio_acetoblanco, prueba_schiller,
             patron_vascular_velloso, vasos_atipicos, puntilleo, mosaico,
             diagnostico_colposcopico, otras_observaciones, plan_tratamiento,
-            diagrama_genitales_path, diagrama_cuadrantes_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            diagrama_genitales_path, diagrama_cuadrantes_path,
+            diagram_genitales_marks, diagram_cuadrantes_marks
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.patient_id, c.fecha_hora, c.envio,
             c.menarca, c.ritmo, c.mpf, c.ivsa, c.gestas, c.partos, c.abortos, c.cesareas, c.fum, c.ultimo_pap,
             c.vulva_vagina, c.colposcopia_tipo, c.cervix, c.zona_transformacion, c.superficie, c.bordes, c.epitelio_acetoblanco, c.prueba_schiller,
             c.patron_vascular_velloso, c.vasos_atipicos, c.puntilleo, c.mosaico,
             c.diagnostico_colposcopico, c.otras_observaciones, c.plan_tratamiento,
-            c.diagrama_genitales_path, c.diagrama_cuadrantes_path
+            c.diagrama_genitales_path, c.diagrama_cuadrantes_path,
+            c.diagram_genitales_marks, c.diagram_cuadrantes_marks
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -523,7 +525,8 @@ pub fn update_colposcopy(
             vulva_vagina = ?, colposcopia_tipo = ?, cervix = ?, zona_transformacion = ?, superficie = ?, bordes = ?, epitelio_acetoblanco = ?, prueba_schiller = ?,
             patron_vascular_velloso = ?, vasos_atipicos = ?, puntilleo = ?, mosaico = ?,
             diagnostico_colposcopico = ?, otras_observaciones = ?, plan_tratamiento = ?,
-            diagrama_genitales_path = ?, diagrama_cuadrantes_path = ?
+            diagrama_genitales_path = ?, diagrama_cuadrantes_path = ?,
+            diagram_genitales_marks = ?, diagram_cuadrantes_marks = ?
         WHERE id = ?",
         params![
             c.fecha_hora, c.envio,
@@ -532,6 +535,7 @@ pub fn update_colposcopy(
             c.patron_vascular_velloso, c.vasos_atipicos, c.puntilleo, c.mosaico,
             c.diagnostico_colposcopico, c.otras_observaciones, c.plan_tratamiento,
             c.diagrama_genitales_path, c.diagrama_cuadrantes_path,
+            c.diagram_genitales_marks, c.diagram_cuadrantes_marks,
             id
         ],
     )
@@ -604,6 +608,8 @@ pub fn get_colposcopy(state: tauri::State<DbState>, id: i32) -> Result<Colposcop
                 plan_tratamiento: row.get(28)?,
                 diagrama_genitales_path: row.get(29)?,
                 diagrama_cuadrantes_path: row.get(30)?,
+                diagram_genitales_marks: row.get(31)?,
+                diagram_cuadrantes_marks: row.get(32)?,
                 captures: None,
             })
         })
@@ -667,6 +673,8 @@ pub fn list_colposcopies_for_patient(
                 plan_tratamiento: row.get(28)?,
                 diagrama_genitales_path: row.get(29)?,
                 diagrama_cuadrantes_path: row.get(30)?,
+                diagram_genitales_marks: row.get(31)?,
+                diagram_cuadrantes_marks: row.get(32)?,
                 captures: None,
             })
         })

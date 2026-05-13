@@ -208,6 +208,8 @@ pub struct ColposcopyEntry {
     // Imágenes (Rutas locales o nombres de archivo)
     pub diagrama_genitales_path: Option<String>,
     pub diagrama_cuadrantes_path: Option<String>,
+    pub diagram_genitales_marks: Option<String>,
+    pub diagram_cuadrantes_marks: Option<String>,
     pub captures: Option<Vec<String>>,
 }
 

@@ -18,7 +18,7 @@ pub fn init_db(app: &AppHandle) -> Connection {
             name TEXT NOT NULL,
             age TEXT, civil_status TEXT, education TEXT, occupation TEXT, address TEXT, phone TEXT,
             bg_heredo_fam TEXT, bg_personal_non_path TEXT, bg_personal_path TEXT, allergies TEXT, surgeries TEXT, transfusions TEXT, trauma TEXT,
-            menarche TEXT, rhythm TEXT, ivsa TEXT, partners TEXT, gestations TEXT, parity TEXT, c_sections TEXT, abortions TEXT, contraception TEXT, last_pap TEXT, last_period_date TEXT, due_date TEXT,
+            menarca TEXT, rhythm TEXT, ivsa TEXT, partners TEXT, gestations TEXT, parity TEXT, c_sections TEXT, abortions TEXT, contraception TEXT, last_pap TEXT, last_period_date TEXT, due_date TEXT,
             weight TEXT, height TEXT, bmi TEXT, blood_pressure TEXT, heart_rate TEXT, respiratory_rate TEXT, temperature TEXT,
             habitus_exterior TEXT, head TEXT, thorax TEXT, abdomen TEXT, genitals TEXT, extremities TEXT,
             labs_studies TEXT, diagnosis TEXT, treatment TEXT, general_notes TEXT
@@ -145,10 +145,7 @@ pub fn init_db(app: &AppHandle) -> Connection {
     )
     .expect("failed to create medical_notes table");
 
-    // Colposcopy captures table
-    conn.execute("DROP TABLE IF EXISTS colposcopy_images", []).ok();
-    conn.execute("DROP TABLE IF EXISTS colposcopies", []).ok();
-    
+    // Colposcopy tables
     conn.execute(
         "CREATE TABLE IF NOT EXISTS colposcopies (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -171,6 +168,7 @@ pub fn init_db(app: &AppHandle) -> Connection {
                 plan_tratamiento TEXT,
                 
                 diagrama_genitales_path TEXT, diagrama_cuadrantes_path TEXT,
+                diagram_genitales_marks TEXT, diagram_cuadrantes_marks TEXT,
 
                 FOREIGN KEY(patient_id) REFERENCES patients(id)
             )",
@@ -178,16 +176,20 @@ pub fn init_db(app: &AppHandle) -> Connection {
     )
     .expect("failed to create colposcopies table");
 
+    // Migrations for existing databases
+    let _ = conn.execute("ALTER TABLE colposcopies ADD COLUMN diagram_genitales_marks TEXT", []);
+    let _ = conn.execute("ALTER TABLE colposcopies ADD COLUMN diagram_cuadrantes_marks TEXT", []);
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS colposcopy_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             colposcopy_id INTEGER NOT NULL,
             path TEXT NOT NULL,
             position INTEGER DEFAULT 0,
-            FOREIGN KEY(colposcopy_id) REFERENCES colposcopies(id) ON DELETE CASCADE
+            FOREIGN KEY(colposcopy_id) REFERENCES colposcopy_id ON DELETE CASCADE
         )",
         [],
-    ).expect("failed to create images table");
+    ).ok();
 
     // Configuration table (Doctor and Clinic info)
     conn.execute(
@@ -210,10 +212,10 @@ pub fn init_db(app: &AppHandle) -> Connection {
     ];
 
     for (k, v) in defaults {
-        conn.execute(
+        let _ = conn.execute(
             "INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)",
             [k, v],
-        ).ok();
+        );
     }
 
     conn
