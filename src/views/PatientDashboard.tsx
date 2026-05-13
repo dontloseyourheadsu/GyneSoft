@@ -161,7 +161,7 @@ const PatientDashboard: React.FC = () => {
                   <tr><td colSpan={3}>No hay estudios de colposcopia.</td></tr>
                 )}
                 {colposcopies.map(c => {
-                  const capCount = [c.figura1_path, c.figura2_path, c.figura3_path, c.figura4_path].filter(Boolean).length;
+                  const capCount = c.captures?.length || 0;
                   return (
                     <tr key={c.id}>
                       <td>{c.fecha_hora?.split('T')[0] || "S/F"}</td>
