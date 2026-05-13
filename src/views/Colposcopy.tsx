@@ -76,6 +76,15 @@ const Colposcopy: React.FC = () => {
         const study = await api.getColposcopy(Number(studyId));
         setForm(study);
         setCaptures(study.captures || []);
+        
+        const marks = { genitales: [], cuadrantes: [] };
+        if (study.diagram_genitales_marks) {
+          try { marks.genitales = JSON.parse(study.diagram_genitales_marks); } catch(e) {}
+        }
+        if (study.diagram_cuadrantes_marks) {
+          try { marks.cuadrantes = JSON.parse(study.diagram_cuadrantes_marks); } catch(e) {}
+        }
+        setDiagramMarks(marks);
       } else {
         const hList = await api.listClinicalHistoriesForPatient(Number(id));
         if (hList && hList.length > 0) {
@@ -138,12 +147,18 @@ const Colposcopy: React.FC = () => {
     if (!id) return;
     setSaving(true);
     try {
-      const finalForm = { ...form, captures };
+      const finalForm: ColposcopyEntry = { 
+        ...form, 
+        captures,
+        diagram_genitales_marks: JSON.stringify(diagramMarks.genitales),
+        diagram_cuadrantes_marks: JSON.stringify(diagramMarks.cuadrantes)
+      } as ColposcopyEntry;
+      
       if (studyId) {
-        await api.updateColposcopy(Number(studyId), finalForm as ColposcopyEntry);
+        await api.updateColposcopy(Number(studyId), finalForm);
         window.alert("Estudio actualizado con éxito");
       } else {
-        await api.createColposcopy(finalForm as ColposcopyEntry);
+        await api.createColposcopy(finalForm);
         window.alert("Estudio guardado con éxito");
       }
       navigate(`/patient/${id}`);

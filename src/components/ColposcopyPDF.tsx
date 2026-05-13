@@ -1,61 +1,58 @@
 import React, { useEffect, useState } from 'react';
-import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Image, Svg, Line, Path, Circle, Rect, Ellipse } from '@react-pdf/renderer';
 import type { ColposcopyEntry, Patient } from '../types';
 import { api } from '../api';
 
 const styles = StyleSheet.create({
-  page: { padding: 30, fontSize: 8, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  page: { padding: 40, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a', lineHeight: 1.2 },
   
   // Header
-  headerContainer: { alignItems: 'center', marginBottom: 15 },
-  clinicName: { fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 2 },
+  headerContainer: { flexDirection: 'row', marginBottom: 20, borderBottom: '1.5pt solid #0052CC', paddingBottom: 10 },
+  logoBox: { width: 70, height: 70, marginRight: 15 },
+  headerInfo: { flex: 1, justifyContent: 'center' },
+  clinicName: { fontSize: 16, fontWeight: 'bold', color: '#0052CC', marginBottom: 2 },
   doctorName: { fontSize: 12, fontWeight: 'bold', marginBottom: 2 },
-  specialty: { fontSize: 8, color: '#444', marginBottom: 1 },
-  university: { fontSize: 7, color: '#666' },
+  specialty: { fontSize: 8, color: '#444' },
 
   // Study Title Box
-  titleBox: { border: '1pt solid #000', flexDirection: 'row', marginTop: 10 },
-  titleText: { fontSize: 11, fontWeight: 'bold', padding: 4, flex: 1, borderRight: '1pt solid #000' },
-  dateBox: { width: 140, padding: 4, flexDirection: 'row' },
-  dateLabel: { fontWeight: 'bold', marginRight: 4 },
+  titleSection: { backgroundColor: '#f4f5f7', padding: 8, marginBottom: 15, borderRadius: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleText: { fontSize: 11, fontWeight: 'bold', color: '#172B4D' },
+  dateText: { fontSize: 9, fontWeight: 'bold' },
 
   // Info Sections
-  section: { border: '1pt solid #000', borderTop: 0 },
-  sectionHeader: { backgroundColor: '#f0f0f0', padding: 3, borderBottom: '1pt solid #000', fontWeight: 'bold' },
-  row: { flexDirection: 'row', borderBottom: '0.5pt solid #eee' },
-  cell: { padding: 4, flex: 1 },
-  cellLabel: { fontWeight: 'bold', fontSize: 7, color: '#444', marginBottom: 1 },
-  cellValue: { fontSize: 8.5 },
+  section: { marginBottom: 12 },
+  sectionHeader: { backgroundColor: '#0052CC', color: '#fff', padding: 4, fontWeight: 'bold', fontSize: 9, marginBottom: 6, borderRadius: 2 },
+  
+  row: { flexDirection: 'row', marginBottom: 8 },
+  field: { marginBottom: 4 },
+  label: { fontWeight: 'bold', fontSize: 7, color: '#6B778C', textTransform: 'uppercase', marginBottom: 1 },
+  value: { fontSize: 9, color: '#172B4D' },
   
   // Grid layout for G-O data
-  goGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  goItem: { width: '10%', padding: 3, borderRight: '0.5pt solid #ccc' },
+  goGrid: { flexDirection: 'row', flexWrap: 'wrap', border: '0.5pt solid #DFE1E6', borderRadius: 4, padding: 4 },
+  goItem: { width: '25%', padding: 4, minHeight: 30 },
 
-  // Colposcopy findings table
-  findingsRow: { flexDirection: 'row', borderBottom: '0.5pt solid #000' },
-  findingsCell: { width: '33.33%', padding: 4, borderRight: '0.5pt solid #000' },
+  // Findings
+  findingsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  findingBox: { width: '50%', marginBottom: 8, paddingRight: 10 },
   
-  // Observaciones area
-  obsGrid: { flexDirection: 'row', flexWrap: 'wrap', borderBottom: '1pt solid #000' },
-  obsItem: { width: '50%', padding: 4, borderRight: '0.5pt solid #ccc' },
-
   // Text areas
-  textArea: { padding: 6, minHeight: 30, borderBottom: '1pt solid #000' },
+  textArea: { padding: 8, backgroundColor: '#fafbfc', border: '0.5pt solid #DFE1E6', borderRadius: 4, minHeight: 35 },
   
   // Visual Section
   visualSection: { marginTop: 10 },
-  visualTitle: { fontWeight: 'bold', marginBottom: 6, fontSize: 9 },
-  visualGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  visualBox: { width: '31%', marginBottom: 10, alignItems: 'center' },
-  visualImg: { width: '100%', height: 100, objectFit: 'contain', border: '0.5pt solid #eee' },
-  visualLabel: { fontSize: 7, marginTop: 2, color: '#666' },
+  visualGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  visualBox: { width: '33.33%', marginBottom: 15, padding: 5, alignItems: 'center' },
+  visualImgContainer: { position: 'relative', width: '100%', height: 110, border: '0.5pt solid #DFE1E6', borderRadius: 4, overflow: 'hidden', backgroundColor: '#fff' },
+  visualImg: { width: '100%', height: '100%', objectFit: 'contain' },
+  visualLabel: { fontSize: 7, marginTop: 4, color: '#6B778C', fontWeight: 'bold', textAlign: 'center' },
 
   // Signature
-  signatureContainer: { marginTop: 20, width: 150 },
-  signatureLine: { borderTop: '1pt solid #000', marginTop: 30, paddingTop: 4 },
+  signatureArea: { marginTop: 30, flexDirection: 'row', justifyContent: 'flex-end' },
+  signatureBox: { width: 200, alignItems: 'center', borderTop: '1pt solid #172B4D', paddingTop: 8 },
   
   // Footer
-  footer: { position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', fontSize: 7, color: '#666' }
+  footer: { position: 'absolute', bottom: 30, left: 40, right: 40, borderTop: '0.5pt solid #DFE1E6', paddingTop: 10, textAlign: 'center', fontSize: 7, color: '#6B778C' }
 });
 
 interface Props {
@@ -63,19 +60,59 @@ interface Props {
   study: ColposcopyEntry;
 }
 
-const DataRow = ({ label, value }: { label: string, value?: string | null }) => (
-  <View style={styles.cell}>
-    <Text style={styles.cellLabel}>{label}:</Text>
-    <Text style={styles.cellValue}>{value || '---'}</Text>
+const InfoField = ({ label, value, flex = 1 }: { label: string, value?: string | number | null, flex?: number }) => (
+  <View style={[styles.field, { flex }]}>
+    <Text style={styles.label}>{label}</Text>
+    <Text style={styles.value}>{value || '---'}</Text>
   </View>
 );
 
-const GOField = ({ label, value }: { label: string, value?: string | null }) => (
-  <View style={styles.goItem}>
-    <Text style={styles.cellLabel}>{label}</Text>
-    <Text style={styles.cellValue}>{value || '-'}</Text>
-  </View>
+const GenitalesDiagram = () => (
+  <Svg viewBox="0 0 220 310" style={{ width: '100%', height: '100%' }}>
+    <Path d="M110,20 C178,20 185,80 185,135 C185,198 153,255 110,278 C67,255 35,198 35,135 C35,80 42,20 110,20 Z" fill="white" stroke="#1a1a6e" strokeWidth={2.2} />
+    <Path d="M110,80 C148,80 162,115 162,155 C162,195 140,228 110,240 C80,228 58,195 58,155 C58,115 72,80 110,80 Z" fill="none" stroke="#1a1a6e" strokeWidth={2} />
+    <Path d="M110,102 C138,102 148,130 148,162 C148,192 132,216 110,226 C88,216 72,192 72,162 C72,130 82,102 110,102 Z" fill="none" stroke="#1a1a6e" strokeWidth={1.8} />
+    <Path d="M110,160 C118,160 122,171 122,181 C122,192 117,200 110,204 C103,200 98,192 98,181 C98,171 102,160 110,160 Z" fill="none" stroke="#1a1a6e" strokeWidth={1.5} />
+    <Path d="M103,80 A7,7 0 0 1 117,80 Z" fill="#1a1a6e" />
+    <Path d="M96,83 A14,11 0 0 1 124,83" fill="none" stroke="#1a1a6e" strokeWidth={1.8} />
+    <Circle cx={110} cy={278} r={11} fill="white" stroke="#1a1a6e" strokeWidth={1.8} />
+  </Svg>
 );
+
+const CuadrantesDiagram = () => (
+  <Svg viewBox="0 0 300 240" style={{ width: '100%', height: '100%' }}>
+    <Rect x={10} y={10} width={280} height={220} fill="white" stroke="#111" strokeWidth={2} />
+    <Line x1={10} y1={10} x2={290} y2={230} stroke="#111" strokeWidth={1.5} />
+    <Line x1={290} y1={10} x2={10} y2={230} stroke="#111" strokeWidth={1.5} />
+    <Ellipse cx={150} cy={120} rx={128} ry={98} fill="white" stroke="#111" strokeWidth={2} />
+    <Ellipse cx={150} cy={120} rx={68} ry={44} fill="white" stroke="#111" strokeWidth={1.8} />
+    <Line x1={100} y1={120} x2={200} y2={120} stroke="#111" strokeWidth={1.5} />
+  </Svg>
+);
+
+const DiagramWithMarks = ({ type, marksJson, label }: { type: 'genitales' | 'cuadrantes', marksJson?: string | null, label: string }) => {
+  let marks: any[] = [];
+  try { if (marksJson) marks = JSON.parse(marksJson); } catch(e) {}
+
+  return (
+    <View style={styles.visualBox} wrap={false}>
+      <View style={styles.visualImgContainer}>
+        {type === 'genitales' ? <GenitalesDiagram /> : <CuadrantesDiagram />}
+        {marks.length > 0 && (
+          <Svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} viewBox="0 0 1 1">
+            {marks.map((m: any, i: number) => (
+              <React.Fragment key={i}>
+                <Line x1={m.x - 0.03} y1={m.y - 0.03} x2={m.x + 0.03} y2={m.y + 0.03} stroke="#0052CC" strokeWidth={0.015} />
+                <Line x1={m.x + 0.03} y1={m.y - 0.03} x2={m.x - 0.03} y2={m.y + 0.03} stroke="#0052CC" strokeWidth={0.015} />
+              </React.Fragment>
+            ))}
+          </Svg>
+        )}
+      </View>
+      <Text style={styles.visualLabel}>{label}</Text>
+    </View>
+  );
+};
 
 export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -84,169 +121,125 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
     api.getConfig().then(setConfig).catch(console.error);
   }, []);
 
-  // Recolectar todas las capturas (ahora soportamos hasta 10 si es necesario)
-  const captures = [
-    study.figura1_path,
-    study.figura2_path,
-    study.figura3_path,
-    study.figura4_path,
-    (study as any).figura5_path,
-    (study as any).figura6_path,
-    (study as any).figura7_path,
-    (study as any).figura8_path,
-    (study as any).figura9_path,
-    (study as any).figura10_path,
-  ].filter(Boolean) as string[];
+  const captures = study.captures || [];
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.headerContainer}>
-          <Text style={styles.clinicName}>{config.clinic_name || 'ATENCION INTEGRAL A LA MUJER'}</Text>
-          <Text style={styles.doctorName}>{config.doctor_name || 'Dr. Eric Alvarez Campos'}</Text>
-          <Text style={styles.specialty}>GINECOLOGIA - OBSTETRICIA - COLPOSCOPIA</Text>
-          <Text style={styles.specialty}>ULTRASONIDO - CIRUGIA GINECOLOGICA</Text>
-          <Text style={styles.university}>BENEMERITA UNIVERSIDAD AUTONOMA DE PUEBLA</Text>
-        </View>
-
-        {/* Title Box */}
-        <View style={styles.titleBox}>
-          <Text style={styles.titleText}>ESTUDIO DE COLPOSCOPIA.</Text>
-          <View style={styles.dateBox}>
-            <Text style={styles.dateLabel}>FECHA ESTUDIO:</Text>
-            <Text>{study.fecha_hora?.split('T')[0]}</Text>
+          {(config.logo_data || config.logo_path) && <Image src={config.logo_data || config.logo_path} style={styles.logoBox} />}
+          <View style={styles.headerInfo}>
+            <Text style={styles.clinicName}>{config.clinic_name || 'GYNESOFT'}</Text>
+            <Text style={styles.doctorName}>{config.doctor_name || 'Dr. Médico Especialista'}</Text>
+            <Text style={styles.specialty}>{config.doctor_specialty || 'Ginecología y Obstetricia'}</Text>
+            <Text style={styles.specialty}>Ced. Prof: {config.cedula_prof} | Ced. Esp: {config.cedula_esp}</Text>
           </View>
         </View>
 
-        {/* Patient Data */}
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.titleText}>REPORTE DE COLPOSCOPIA</Text>
+          <Text style={styles.dateText}>FECHA: {study.fecha_hora?.split('T')[0]}</Text>
+        </View>
+
+        {/* Patient Info */}
         <View style={styles.section}>
           <View style={styles.row}>
-            <View style={{ flex: 2, padding: 4 }}>
-              <Text style={styles.cellLabel}>PACIENTE:</Text>
-              <Text style={styles.cellValue}>{patient?.nombre}</Text>
-            </View>
-            <View style={{ flex: 0.5, padding: 4, borderLeft: '1pt solid #000' }}>
-              <Text style={styles.cellLabel}>EDAD:</Text>
-              <Text style={styles.cellValue}>{patient?.edad} Años</Text>
-            </View>
-            <View style={{ flex: 1, padding: 4, borderLeft: '1pt solid #000' }}>
-              <Text style={styles.cellLabel}>ENVIO:</Text>
-              <Text style={styles.cellValue}>{study.envio || 'NINGUNO'}</Text>
-            </View>
+            <InfoField label="Nombre de la Paciente" value={patient?.nombre} flex={3} />
+            <InfoField label="Edad" value={patient?.edad ? `${patient.edad} Años` : ''} />
+            <InfoField label="Referida por" value={study.envio} />
           </View>
         </View>
 
         {/* GO Data */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>DATOS GINECO-OBSTETRICOS:</Text>
+          <Text style={styles.sectionHeader}>ANTECEDENTES GINECO-OBSTÉTRICOS</Text>
           <View style={styles.goGrid}>
-            <GOField label="MENARCA" value={study.menarca} />
-            <GOField label="RITMO" value={study.ritmo} />
-            <GOField label="MPF" value={study.mpf} />
-            <GOField label="IVSA" value={study.ivsa} />
-            <GOField label="G" value={study.gestas} />
-            <GOField label="P" value={study.partos} />
-            <GOField label="A" value={study.abortos} />
-            <GOField label="C" value={study.cesareas} />
-            <GOField label="FUM" value={study.fum} />
-            <GOField label="ULT. PAP" value={study.ultimo_pap} />
+            <View style={styles.goItem}><InfoField label="Menarca" value={study.menarca} /></View>
+            <View style={styles.goItem}><InfoField label="Ritmo" value={study.ritmo} /></View>
+            <View style={styles.goItem}><InfoField label="MPF" value={study.mpf} /></View>
+            <View style={styles.goItem}><InfoField label="IVSA" value={study.ivsa} /></View>
+            <View style={styles.goItem}><InfoField label="Gestas" value={study.gestas} /></View>
+            <View style={styles.goItem}><InfoField label="Partos" value={study.partos} /></View>
+            <View style={styles.goItem}><InfoField label="Abortos" value={study.abortos} /></View>
+            <View style={styles.goItem}><InfoField label="Cesáreas" value={study.cesareas} /></View>
+            <View style={styles.goItem}><InfoField label="FUM" value={study.fum} /></View>
+            <View style={styles.goItem}><InfoField label="Último PAP" value={study.ultimo_pap} /></View>
           </View>
         </View>
 
-        {/* Colposcopy Findings */}
+        {/* Findings */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>DATOS COLPOSCOPICOS:</Text>
-          <View style={styles.row}>
-            <DataRow label="VULVA Y VAGINA" value={study.vulva_vagina} />
-          </View>
-          
-          <View style={styles.findingsRow}>
-            <View style={styles.findingsCell}><DataRow label="COLPOSCOPIA" value={study.colposcopia_tipo} /></View>
-            <View style={styles.findingsCell}><DataRow label="CERVIX" value={study.cervix} /></View>
-            <View style={{...styles.findingsCell, borderRight: 0}}><DataRow label="ZONA TRANSFORMACION" value={study.zona_transformacion} /></View>
-          </View>
-
-          <View style={styles.findingsRow}>
-            <View style={styles.findingsCell}><DataRow label="SUPERFICIE" value={study.superficie} /></View>
-            <View style={styles.findingsCell}><DataRow label="BORDES" value={study.bordes} /></View>
-            <View style={{...styles.findingsCell, borderRight: 0}}><DataRow label="EPITELIO ACETOBLANCO" value={study.epitelio_acetoblanco} /></View>
-          </View>
-
-          <View style={styles.row}>
-             <DataRow label="PRUEBA DE SHILLER" value={study.prueba_schiller} />
+          <Text style={styles.sectionHeader}>HALLAZGOS COLPOSCÓPICOS</Text>
+          <View style={styles.findingsGrid}>
+            <View style={styles.findingBox}><InfoField label="Vulva y Vagina" value={study.vulva_vagina} /></View>
+            <View style={styles.findingBox}><InfoField label="Tipo de Colposcopia" value={study.colposcopia_tipo} /></View>
+            <View style={styles.findingBox}><InfoField label="Cérvix" value={study.cervix} /></View>
+            <View style={styles.findingBox}><InfoField label="Zona de Transformación" value={study.zona_transformacion} /></View>
+            <View style={styles.findingBox}><InfoField label="Superficie" value={study.superficie} /></View>
+            <View style={styles.findingBox}><InfoField label="Bordes" value={study.bordes} /></View>
+            <View style={styles.findingBox}><InfoField label="Epitelio Acetoblanco" value={study.epitelio_acetoblanco} /></View>
+            <View style={styles.findingBox}><InfoField label="Prueba de Schiller" value={study.prueba_schiller} /></View>
           </View>
         </View>
 
         {/* Observations */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>OBSERVACIONES:</Text>
-          <View style={styles.obsGrid}>
-            <View style={styles.obsItem}><DataRow label="PATRON VASCULAR VELLOSO" value={study.patron_vascular_velloso} /></View>
-            <View style={styles.obsItem}><DataRow label="VASOS ATIPICOS" value={study.vasos_atipicos} /></View>
-            <View style={styles.obsItem}><DataRow label="PUNTILLEO" value={study.puntilleo} /></View>
-            <View style={styles.obsItem}><DataRow label="MOSAICO" value={study.mosaico} /></View>
+          <Text style={styles.sectionHeader}>OBSERVACIONES ESPECÍFICAS</Text>
+          <View style={styles.findingsGrid}>
+            <View style={styles.findingBox}><InfoField label="Patrón Vascular Velloso" value={study.patron_vascular_velloso} /></View>
+            <View style={styles.findingBox}><InfoField label="Vasos Atípicos" value={study.vasos_atipicos} /></View>
+            <View style={styles.findingBox}><InfoField label="Puntilleo" value={study.puntilleo} /></View>
+            <View style={styles.findingBox}><InfoField label="Mosaico" value={study.mosaico} /></View>
           </View>
         </View>
 
-        {/* Conclusion areas */}
-        <View style={styles.section}>
-           <Text style={styles.sectionHeader}>DIAGNOSTICO COLPOSCOPICO:</Text>
-           <View style={styles.textArea}><Text>{study.diagnostico_colposcopico || 'SIN ALTERACIONES'}</Text></View>
-        </View>
-
-        <View style={styles.section}>
-           <Text style={styles.sectionHeader}>OTRAS:</Text>
-           <View style={styles.textArea}><Text>{study.otras_observaciones || 'NINGUNA'}</Text></View>
-        </View>
-
-        <View style={styles.section}>
-           <Text style={styles.sectionHeader}>PLAN DE TRATAMIENTO:</Text>
-           <View style={styles.textArea}><Text>{study.plan_tratamiento || '---'}</Text></View>
+        {/* Conclusion */}
+        <View style={styles.section} wrap={false}>
+          <Text style={styles.sectionHeader}>DIAGNÓSTICO Y PLAN</Text>
+          <InfoField label="Diagnóstico Colposcópico" value={study.diagnostico_colposcopico} />
+          <View style={{height: 8}} />
+          <InfoField label="Otras Observaciones" value={study.otras_observaciones} />
+          <View style={{height: 8}} />
+          <InfoField label="Plan de Tratamiento" value={study.plan_tratamiento} />
         </View>
 
         {/* Visual Support */}
         <View style={styles.visualSection}>
-          <Text style={styles.visualTitle}>{'==>'} Diagramas de Apoyo y Capturas:</Text>
+          <Text style={styles.sectionHeader}>APOYO VISUAL</Text>
           <View style={styles.visualGrid}>
-            {study.diagrama_genitales_path && (
-               <View style={styles.visualBox}>
-                 <Image src={study.diagrama_genitales_path} style={styles.visualImg} />
-                 <Text style={styles.visualLabel}>Genitales Externos</Text>
-               </View>
-            )}
-            {study.diagrama_cuadrantes_path && (
-               <View style={styles.visualBox}>
-                 <Image src={study.diagrama_cuadrantes_path} style={styles.visualImg} />
-                 <Text style={styles.visualLabel}>Cuadrantes Cervicales</Text>
-               </View>
-            )}
+            <DiagramWithMarks type="genitales" marksJson={study.diagram_genitales_marks} label="Genitales Externos" />
+            <DiagramWithMarks type="cuadrantes" marksJson={study.diagram_cuadrantes_marks} label="Cuadrantes Cervicales" />
+            
             {captures.map((cap, i) => (
-              <View style={styles.visualBox} key={i}>
-                <Image src={cap} style={styles.visualImg} />
+              <View style={styles.visualBox} key={i} wrap={false}>
+                <View style={styles.visualImgContainer}>
+                  <Image src={cap} style={styles.visualImg} />
+                </View>
                 <Text style={styles.visualLabel}>Captura {i+1}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Signature */}
-        <View style={styles.signatureContainer}>
-          <Text style={{fontWeight: 'bold'}}>ATENTAMENTE:</Text>
-          <View style={styles.signatureLine}>
-             <Text style={{fontWeight: 'bold'}}>{config.doctor_name || 'Dr. Eric Alvarez Campos'}</Text>
-             <Text>Ced. Prof.: {config.cedula_prof}</Text>
-             <Text>Ced. Esp.: {config.cedula_esp}</Text>
+        {/* Signature Area */}
+        <View style={styles.signatureArea} wrap={false}>
+          <View style={styles.signatureBox}>
+            <Text style={{fontWeight: 'bold'}}>{config.doctor_name || 'Dr. Médico Especialista'}</Text>
+            <Text>Cédula Profesional: {config.cedula_prof}</Text>
+            {config.cedula_esp && <Text>Cédula Especialidad: {config.cedula_esp}</Text>}
           </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>{config.clinic_address || 'Av. Independencia No. 405, Col. Chapultepec, Puebla, Pue.'}</Text>
-          <Text>Tel. {config.clinic_phone || '253 02 70 Cel. 044 22 22 38 50 56'}</Text>
+          <Text>{config.clinic_address || 'Dirección de la Clínica'}</Text>
+          <Text>Tel: {config.clinic_phone || 'Teléfono'}</Text>
         </View>
 
       </Page>
     </Document>
   );
 };
+
