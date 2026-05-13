@@ -10,7 +10,6 @@ import type { Patient, ColposcopyEntry, ClinicalHistory } from "../types";
 const Colposcopy: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const videoRef = useRef<HTMLVideoElement>(null);
   
   const [patient, setPatient] = useState<Patient | null>(null);
   const [, setHistory] = useState<ClinicalHistory | null>(null);
@@ -26,7 +25,8 @@ const Colposcopy: React.FC = () => {
     prueba_schiller: "Negativo"
   });
 
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [rustFrame, setRustFrame] = useState<string | null>(null);
+  const streamActiveRef = useRef(false);
   const [captures, setCaptures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [diagramTool, setDiagramTool] = useState<"mark" | "erase">("mark");
@@ -38,9 +38,7 @@ const Colposcopy: React.FC = () => {
   useEffect(() => {
     loadData();
     startCamera();
-    return () => {
-      stream?.getTracks().forEach(t => t.stop());
-    };
+    return () => { streamActiveRef.current = false; };
   }, [id]);
 
   const loadData = async () => {
@@ -52,7 +50,6 @@ const Colposcopy: React.FC = () => {
       if (hList && hList.length > 0) {
         const h = hList[0];
         setHistory(h);
-        // Pre-fill OB/GYN data from history
         setForm(prev => ({
           ...prev,
           menarca: h.menarca,
@@ -72,21 +69,35 @@ const Colposcopy: React.FC = () => {
 
   const startCamera = async () => {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-      setStream(s);
-      if (videoRef.current) videoRef.current.srcObject = s;
+      let stkPath = "/dev/video4";
+      try {
+        const linuxDevs = await (api as any).listLinuxVideoDevices();
+        const stk = (linuxDevs as any[]).find(d => d.label.toLowerCase().includes("stk1160"));
+        if (stk) {
+          stkPath = stk.path;
+          await (api as any).setupStk1160Linux(stkPath);
+        }
+      } catch (e) { console.warn("Auto-config STK failed:", e); }
+
+      // We prioritize Rust stream as it's proven to work
+      streamActiveRef.current = true;
+      runRustStream(stkPath);
     } catch (e) { window.alert("No se pudo acceder a la cámara: " + e); }
   };
 
+  const runRustStream = async (path: string) => {
+    if (!streamActiveRef.current) return;
+    try {
+      const data = await (api as any).testCameraCapture(path);
+      setRustFrame(data);
+    } catch (e) { console.error("Rust stream error:", e); }
+    setTimeout(() => runRustStream(path), 100);
+  };
+
   const captureFrame = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx?.drawImage(videoRef.current, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    setCaptures(prev => [dataUrl, ...prev].slice(0, 4));
+    if (rustFrame) {
+      setCaptures(prev => [rustFrame, ...prev]);
+    }
   };
 
   const saveStudy = async () => {
@@ -154,19 +165,13 @@ const Colposcopy: React.FC = () => {
           <Section>
             <SectionTitle>Captura en Vivo</SectionTitle>
             <VideoWrapper>
-              <video ref={videoRef} autoPlay playsInline muted />
+              {rustFrame ? (
+                <img src={rustFrame} alt="Live Stream" />
+              ) : (
+                <div style={{color:'#666', fontSize:'12px'}}>Iniciando cámara...</div>
+              )}
               <CaptureBtn onClick={captureFrame}>Capturar Foto</CaptureBtn>
             </VideoWrapper>
-            
-            <Gallery>
-               {captures.map((cap, i) => (
-                 <CaptureThumb key={i}>
-                   <img src={cap} alt={`Figura ${i+1}`} />
-                   <span>Figura {i+1}</span>
-                 </CaptureThumb>
-               ))}
-               {captures.length === 0 && <p style={{fontSize:'12px', color:'#666'}}>No hay capturas aún.</p>}
-            </Gallery>
           </Section>
 
           <Section>
@@ -205,6 +210,21 @@ const Colposcopy: React.FC = () => {
                    <p>Cuadrantes Cervicales</p>
                 </DiagramBox>
              </div>
+          </Section>
+
+          <Section>
+            <SectionTitle>Capturas Recientes</SectionTitle>
+            <GalleryWrapper>
+              <GalleryGrid>
+                {captures.map((cap, i) => (
+                  <CaptureThumb key={i}>
+                    <img src={cap} alt={`Captura ${i+1}`} />
+                    <span>Captura {i+1}</span>
+                  </CaptureThumb>
+                ))}
+                {captures.length === 0 && <p style={{fontSize:'12px', color:'#666', gridColumn:'1/-1', textAlign:'center', padding:'20px'}}>No hay capturas aún.</p>}
+              </GalleryGrid>
+            </GalleryWrapper>
           </Section>
         </Sidebar>
 
@@ -291,15 +311,18 @@ const Colposcopy: React.FC = () => {
 
 const Container = styled.div`padding: 24px; background: #f4f5f7; height: 100vh; display: flex; flex-direction: column;`;
 const Header = styled.div`display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;`;
-const MainLayout = styled.div`display: grid; grid-template-columns: 450px 1fr; gap: 24px; flex: 1; overflow: hidden;`;
-const Sidebar = styled.div`display: flex; flex-direction: column; gap: 20px; overflow-y: auto;`;
+const MainLayout = styled.div`grid-template-columns: 450px 1fr; gap: 24px; flex: 1; overflow: hidden; display: grid;`;
+const Sidebar = styled.div`display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-right: 8px;`;
 const FormScroll = styled.div`background: #fff; border-radius: 8px; border: 1px solid #DFE1E6; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px;`;
 const Section = styled.div``;
 const SectionTitle = styled.h4`margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; color: #172B4D;`;
-const VideoWrapper = styled.div`position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; video { width: 100%; height: 100%; object-fit: cover; }`;
+const VideoWrapper = styled.div`position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; img { width: 100%; height: 100%; object-fit: contain; }`;
 const CaptureBtn = styled.button`position: absolute; bottom: 12px; right: 12px; padding: 8px 16px; background: #0052CC; color: #fff; border: none; border-radius: 4px; cursor: pointer; &:hover { background: #0065FF; }`;
-const Gallery = styled.div`display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px;`;
-const CaptureThumb = styled.div`display: flex; flex-direction: column; align-items: center; img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px; border: 1px solid #DFE1E6; } span { font-size: 10px; color: #666; margin-top: 2px; }`;
+
+const GalleryWrapper = styled.div`background: #fafbfc; border: 1px solid #DFE1E6; border-radius: 8px; height: 320px; overflow-y: auto; padding: 12px;`;
+const GalleryGrid = styled.div`display: grid; grid-template-columns: 1fr 1fr; gap: 12px;`;
+const CaptureThumb = styled.div`display: flex; flex-direction: column; align-items: center; background: #fff; border: 1px solid #DFE1E6; border-radius: 4px; padding: 4px; img { width: 100%; aspect-ratio: 1.5/1; object-fit: contain; border-radius: 2px; } span { font-size: 10px; color: #666; margin-top: 4px; }`;
+
 const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 160px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
 const DiagramToolbar = styled.div`display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;`;
 const DiagramCanvas = styled.div`position: relative; width: 100%; height: 180px; cursor: crosshair; img { width: 100%; height: 100%; object-fit: contain; display: block; }`;
