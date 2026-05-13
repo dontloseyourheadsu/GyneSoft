@@ -6,6 +6,100 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 #[tauri::command]
+pub fn test_camera_capture(path: String) -> Result<String, String> {
+    let output = if cfg!(target_os = "linux") {
+        Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-nostdin",
+                "-f", "v4l2",
+                "-video_size", "720x480",
+                "-i", &path,
+                "-frames:v", "1",
+                "-f", "image2pipe",
+                "-vcodec", "mjpeg",
+                "-",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to execute ffmpeg: {}", e))?
+    } else if cfg!(target_os = "macos") {
+        // macOS support via avfoundation
+        Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-nostdin",
+                "-f", "avfoundation",
+                "-i", &path, // On macOS this might be an index like "0"
+                "-frames:v", "1",
+                "-f", "image2pipe",
+                "-vcodec", "mjpeg",
+                "-",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to execute ffmpeg: {}", e))?
+    } else {
+        return Err("Unsupported OS for ffmpeg capture".into());
+    };
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("FFmpeg error: {}", err));
+    }
+
+    let base64_data = base64::engine::general_purpose::STANDARD.encode(output.stdout);
+    Ok(format!("data:image/jpeg;base64,{}", base64_data))
+}
+
+#[tauri::command]
+pub fn list_all_cameras() -> Result<Vec<VideoDevice>, String> {
+    if cfg!(target_os = "linux") {
+        list_linux_video_devices()
+    } else if cfg!(target_os = "macos") {
+        // Simple list for macOS via ffmpeg
+        let output = Command::new("ffmpeg")
+            .args(["-f", "avfoundation", "-list_devices", "true", "-i", ""])
+            .output()
+            .map_err(|e| format!("Failed to list macOS devices: {}", e))?;
+        
+        // ffmpeg outputs device list to stderr
+        let text = String::from_utf8_lossy(&output.stderr);
+        let mut devices = Vec::new();
+        let mut in_video_section = false;
+
+        for line in text.lines() {
+            if line.contains("AVFoundation video devices") {
+                in_video_section = true;
+                continue;
+            }
+            if line.contains("AVFoundation audio devices") {
+                break;
+            }
+            if in_video_section && line.contains("[") && line.contains("]") {
+                if let Some(start) = line.find(']') {
+                    let _part = &line[start+1..].trim();
+                    // Simpler regex-like approach:
+                    if let Some(idx_start) = line.find('[') {
+                        if let Some(idx_end) = line[idx_start+1..].find(']') {
+                            let idx_str = &line[idx_start+1..idx_start+1+idx_end];
+                            if let Ok(_) = idx_str.parse::<u32>() {
+                                let label = &line[idx_start+1+idx_end+1..].trim();
+                                devices.push(VideoDevice {
+                                    label: label.to_string(),
+                                    path: idx_str.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(devices)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+#[tauri::command]
 pub fn setup_stk1160_linux(device_path: String) -> Result<String, String> {
     if cfg!(target_os = "linux") {
         let output_i = Command::new("v4l2-ctl")
