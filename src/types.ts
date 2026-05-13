@@ -132,10 +132,7 @@ export interface ColposcopyEntry {
   // Imágenes
   diagrama_genitales_path?: string | null;
   diagrama_cuadrantes_path?: string | null;
-  figura1_path?: string | null;
-  figura2_path?: string | null;
-  figura3_path?: string | null;
-  figura4_path?: string | null;
+  captures?: string[];
 }
 
 export {};

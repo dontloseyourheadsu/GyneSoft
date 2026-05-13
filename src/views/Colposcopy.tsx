@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@atlaskit/button";
-import styled from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { api } from "../api";
 import diagramaGenitales from "../assets/diagrams/diagrama1_pendiente.svg";
 import diagramaCuadrantes from "../assets/diagrams/diagrama2_cuadrado.svg";
@@ -18,7 +18,7 @@ const Colposcopy: React.FC = () => {
   const [form, setForm] = useState<Partial<ColposcopyEntry>>({
     patient_id: Number(id),
     fecha_hora: new Date().toISOString(),
-    colposcopia_tipo: "Satisfactoria",
+    colposcopia_tipo: "Correcto",
     cervix: "Eutrófico",
     zona_transformacion: "Normal",
     superficie: "Lisa",
@@ -28,20 +28,43 @@ const Colposcopy: React.FC = () => {
   });
 
   const [rustFrame, setRustFrame] = useState<string | null>(null);
+  const rustFrameRef = useRef<string | null>(null);
   const streamActiveRef = useRef(false);
   const [captures, setCaptures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState(false);
   const [diagramTool, setDiagramTool] = useState<"mark" | "erase">("mark");
   const [diagramMarks, setDiagramMarks] = useState<{ genitales: DiagramMark[]; cuadrantes: DiagramMark[] }>({
     genitales: [],
     cuadrantes: []
   });
 
+  const captureFrame = useCallback(() => {
+    const currentFrame = rustFrameRef.current;
+    if (currentFrame) {
+      setCaptures(prev => [currentFrame, ...prev]);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 150);
+    }
+  }, []);
+
   useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      // Pedal logic: F5 or Ctrl+C
+      if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "c")) {
+        e.preventDefault();
+        captureFrame();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeys);
+
     loadData();
     startCamera();
-    return () => { streamActiveRef.current = false; };
-  }, [id, studyId]);
+    return () => { 
+      streamActiveRef.current = false;
+      window.removeEventListener("keydown", handleGlobalKeys);
+    };
+  }, [id, studyId, captureFrame]);
 
   const loadData = async () => {
     if (!id) return;
@@ -52,13 +75,7 @@ const Colposcopy: React.FC = () => {
       if (studyId) {
         const study = await api.getColposcopy(Number(studyId));
         setForm(study);
-        const caps = [
-          study.figura1_path,
-          study.figura2_path,
-          study.figura3_path,
-          study.figura4_path
-        ].filter(Boolean) as string[];
-        setCaptures(caps);
+        setCaptures(study.captures || []);
       } else {
         const hList = await api.listClinicalHistoriesForPatient(Number(id));
         if (hList && hList.length > 0) {
@@ -104,21 +121,15 @@ const Colposcopy: React.FC = () => {
     try {
       const data = await (api as any).testCameraCapture(path);
       setRustFrame(data);
+      rustFrameRef.current = data;
     } catch (e) { console.error("Rust stream error:", e); }
     setTimeout(() => runRustStream(path), 100);
-  };
-
-  const captureFrame = () => {
-    if (rustFrame) {
-      setCaptures(prev => [rustFrame, ...prev]);
-    }
   };
 
   const moveCapture = (index: number, direction: 'up' | 'down') => {
     const newCaptures = [...captures];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= newCaptures.length) return;
-    
     [newCaptures[index], newCaptures[targetIndex]] = [newCaptures[targetIndex], newCaptures[index]];
     setCaptures(newCaptures);
   };
@@ -127,13 +138,7 @@ const Colposcopy: React.FC = () => {
     if (!id) return;
     setSaving(true);
     try {
-      const finalForm = { ...form };
-      // Assign captures in order (up to 4)
-      finalForm.figura1_path = captures[0] || null;
-      finalForm.figura2_path = captures[1] || null;
-      finalForm.figura3_path = captures[2] || null;
-      finalForm.figura4_path = captures[3] || null;
-
+      const finalForm = { ...form, captures };
       if (studyId) {
         await api.updateColposcopy(Number(studyId), finalForm as ColposcopyEntry);
         window.alert("Estudio actualizado con éxito");
@@ -192,8 +197,8 @@ const Colposcopy: React.FC = () => {
       <MainLayout>
         <Sidebar>
           <Section>
-            <SectionTitle>Captura en Vivo</SectionTitle>
-            <VideoWrapper>
+            <SectionTitle>Captura en Vivo (F5 o Pedal)</SectionTitle>
+            <VideoWrapper $flash={flash}>
               {rustFrame ? (
                 <img src={rustFrame} alt="Live Stream" />
               ) : (
@@ -248,12 +253,8 @@ const Colposcopy: React.FC = () => {
                 {captures.map((cap, i) => (
                   <CaptureItem key={i}>
                     <Controls>
-                      <IconButton onClick={() => moveCapture(i, 'up')} disabled={i === 0}>
-                        <span role="img" aria-label="Up">▲</span>
-                      </IconButton>
-                      <IconButton onClick={() => moveCapture(i, 'down')} disabled={i === captures.length - 1}>
-                        <span role="img" aria-label="Down">▼</span>
-                      </IconButton>
+                      <IconButton onClick={() => moveCapture(i, 'up')} disabled={i === 0}>▲</IconButton>
+                      <IconButton onClick={() => moveCapture(i, 'down')} disabled={i === captures.length - 1}>▼</IconButton>
                     </Controls>
                     <img src={cap} alt={`Captura ${i+1}`} />
                     <span style={{flex: 1, textAlign:'center'}}>Captura {i+1}</span>
@@ -298,8 +299,8 @@ const Colposcopy: React.FC = () => {
               <Field>
                 <Label>Colposcopia</Label>
                 <Select value={form.colposcopia_tipo || ""} onChange={e=>updateField('colposcopia_tipo', e.target.value)}>
-                  <option>Satisfactoria</option>
-                  <option>No satisfactoria</option>
+                  <option>Correcto</option>
+                  <option>Incorrecto</option>
                 </Select>
               </Field>
               <Field>
@@ -356,6 +357,12 @@ const Colposcopy: React.FC = () => {
   );
 };
 
+const flashAnimation = keyframes`
+  0% { filter: brightness(1); }
+  50% { filter: brightness(2.5) contrast(0.8); }
+  100% { filter: brightness(1); }
+`;
+
 const Container = styled.div`padding: 24px; background: #f4f5f7; height: 100vh; display: flex; flex-direction: column;`;
 const Header = styled.div`display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;`;
 const MainLayout = styled.div`grid-template-columns: 450px 1fr; gap: 24px; flex: 1; overflow: hidden; display: grid;`;
@@ -363,14 +370,29 @@ const Sidebar = styled.div`display: flex; flex-direction: column; gap: 20px; ove
 const FormScroll = styled.div`background: #fff; border-radius: 8px; border: 1px solid #DFE1E6; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px;`;
 const Section = styled.div``;
 const SectionTitle = styled.h4`margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; color: #172B4D;`;
-const VideoWrapper = styled.div`position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; img { width: 100%; height: 100%; object-fit: contain; }`;
+
+const VideoWrapper = styled.div<{ $flash?: boolean }>`
+  position: relative; 
+  background: #000; 
+  border-radius: 8px; 
+  overflow: hidden; 
+  aspect-ratio: 16/9; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  img { 
+    width: 100%; height: 100%; object-fit: contain; 
+    ${props => props.$flash && css`animation: ${flashAnimation} 0.15s ease-out;`}
+  }
+`;
+
 const CaptureBtn = styled.button`position: absolute; bottom: 12px; right: 12px; padding: 8px 16px; background: #0052CC; color: #fff; border: none; border-radius: 4px; cursor: pointer; &:hover { background: #0065FF; }`;
 
 const GalleryWrapper = styled.div`background: #fafbfc; border: 1px solid #DFE1E6; border-radius: 8px; height: 380px; overflow-y: auto; padding: 12px;`;
 const GalleryList = styled.div`display: flex; flex-direction: column; gap: 12px;`;
 const CaptureItem = styled.div`display: flex; align-items: center; background: #fff; border: 1px solid #DFE1E6; border-radius: 4px; padding: 8px; gap: 12px; img { height: 120px; aspect-ratio: 1.5/1; object-fit: contain; border-radius: 2px; border: 1px solid #eee; } span { font-size: 11px; font-weight: 600; color: #172B4D; }`;
 const Controls = styled.div`display: flex; flex-direction: column; gap: 4px;`;
-const IconButton = styled.button`background: #f4f5f7; border: 1px solid #DFE1E6; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px; &:hover:not(:disabled) { background: #ebecf0; } &:disabled { opacity: 0.3; cursor: not-allowed; }`;
+const IconButton = styled.button`background: #f4f5f7; border: 1px solid #DFE1E6; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; font-size: 12px; &:hover:not(:disabled) { background: #ebecf0; } &:disabled { opacity: 0.3; cursor: not-allowed; }`;
 
 const DiagramBox = styled.div`border: 1px solid #DFE1E6; padding: 10px; border-radius: 6px; text-align: center; background: #fafbfc; img { width: 100%; height: 160px; object-fit: contain; } p { font-size: 10px; margin-top: 5px; color: #666; }`;
 const DiagramToolbar = styled.div`display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;`;

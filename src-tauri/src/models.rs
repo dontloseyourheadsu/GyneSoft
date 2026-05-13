@@ -208,10 +208,7 @@ pub struct ColposcopyEntry {
     // Imágenes (Rutas locales o nombres de archivo)
     pub diagrama_genitales_path: Option<String>,
     pub diagrama_cuadrantes_path: Option<String>,
-    pub figura1_path: Option<String>,
-    pub figura2_path: Option<String>,
-    pub figura3_path: Option<String>,
-    pub figura4_path: Option<String>,
+    pub captures: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

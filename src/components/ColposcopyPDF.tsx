@@ -40,19 +40,19 @@ const styles = StyleSheet.create({
   obsItem: { width: '50%', padding: 4, borderRight: '0.5pt solid #ccc' },
 
   // Text areas
-  textArea: { padding: 6, minHeight: 40, borderBottom: '1pt solid #000' },
+  textArea: { padding: 6, minHeight: 30, borderBottom: '1pt solid #000' },
   
   // Visual Section
-  visualSection: { marginTop: 15 },
-  visualTitle: { fontWeight: 'bold', marginBottom: 8, fontSize: 9 },
+  visualSection: { marginTop: 10 },
+  visualTitle: { fontWeight: 'bold', marginBottom: 6, fontSize: 9 },
   visualGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   visualBox: { width: '31%', marginBottom: 10, alignItems: 'center' },
-  visualImg: { width: '100%', height: 110, objectFit: 'contain', border: '0.5pt solid #eee' },
-  visualLabel: { fontSize: 7, marginTop: 3, color: '#666' },
+  visualImg: { width: '100%', height: 100, objectFit: 'contain', border: '0.5pt solid #eee' },
+  visualLabel: { fontSize: 7, marginTop: 2, color: '#666' },
 
   // Signature
-  signatureContainer: { marginTop: 30, width: 150 },
-  signatureLine: { borderTop: '1pt solid #000', marginTop: 40, paddingTop: 4 },
+  signatureContainer: { marginTop: 20, width: 150 },
+  signatureLine: { borderTop: '1pt solid #000', marginTop: 30, paddingTop: 4 },
   
   // Footer
   footer: { position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', fontSize: 7, color: '#666' }
@@ -84,11 +84,18 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
     api.getConfig().then(setConfig).catch(console.error);
   }, []);
 
+  // Recolectar todas las capturas (ahora soportamos hasta 10 si es necesario)
   const captures = [
     study.figura1_path,
     study.figura2_path,
     study.figura3_path,
-    study.figura4_path
+    study.figura4_path,
+    (study as any).figura5_path,
+    (study as any).figura6_path,
+    (study as any).figura7_path,
+    (study as any).figura8_path,
+    (study as any).figura9_path,
+    (study as any).figura10_path,
   ].filter(Boolean) as string[];
 
   return (
@@ -200,7 +207,7 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
 
         {/* Visual Support */}
         <View style={styles.visualSection}>
-          <Text style={styles.visualTitle}>{'==>'} Diagramas de Apoyo:</Text>
+          <Text style={styles.visualTitle}>{'==>'} Diagramas de Apoyo y Capturas:</Text>
           <View style={styles.visualGrid}>
             {study.diagrama_genitales_path && (
                <View style={styles.visualBox}>

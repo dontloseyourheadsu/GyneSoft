@@ -146,7 +146,9 @@ pub fn init_db(app: &AppHandle) -> Connection {
     .expect("failed to create medical_notes table");
 
     // Colposcopy captures table
+    conn.execute("DROP TABLE IF EXISTS colposcopy_images", []).ok();
     conn.execute("DROP TABLE IF EXISTS colposcopies", []).ok();
+    
     conn.execute(
         "CREATE TABLE IF NOT EXISTS colposcopies (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,13 +171,23 @@ pub fn init_db(app: &AppHandle) -> Connection {
                 plan_tratamiento TEXT,
                 
                 diagrama_genitales_path TEXT, diagrama_cuadrantes_path TEXT,
-                figura1_path TEXT, figura2_path TEXT, figura3_path TEXT, figura4_path TEXT,
 
                 FOREIGN KEY(patient_id) REFERENCES patients(id)
             )",
         [],
     )
     .expect("failed to create colposcopies table");
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS colposcopy_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            colposcopy_id INTEGER NOT NULL,
+            path TEXT NOT NULL,
+            position INTEGER DEFAULT 0,
+            FOREIGN KEY(colposcopy_id) REFERENCES colposcopies(id) ON DELETE CASCADE
+        )",
+        [],
+    ).expect("failed to create images table");
 
     // Configuration table (Doctor and Clinic info)
     conn.execute(
