@@ -23,4 +23,12 @@ export const api = {
 
   createColposcopy: (c: ColposcopyEntry) => invoke<number>("create_colposcopy", { c }),
   listColposcopiesForPatient: (patientId: number) => invoke<ColposcopyEntry[]>("list_colposcopies_for_patient", { patientId }),
+
+  // Video Commands
+  listLinuxVideoDevices: () => invoke<any[]>("list_linux_video_devices"),
+  listAllCameras: () => invoke<any[]>("list_all_cameras"),
+  testCameraCapture: (path: string) => invoke<string>("test_camera_capture", { path }),
+  setupStk1160Linux: (devicePath: string) => invoke<string>("setup_stk1160_linux", { devicePath }),
+  saveCaptureImage: (base64Data: string) => invoke<string>("save_capture_image", { base64Data }),
+  listRecentCaptures: (limit?: number) => invoke<string[]>("list_recent_captures", { limit }),
 };
