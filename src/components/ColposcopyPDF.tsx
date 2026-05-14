@@ -4,7 +4,7 @@ import type { ColposcopyEntry, Patient } from '../types';
 import { api } from '../api';
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a', lineHeight: 1.2 },
+  page: { padding: 40, paddingBottom: 70, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a', lineHeight: 1.2 },
   
   // Header
   headerContainer: { flexDirection: 'row', marginBottom: 20, borderBottom: '1.5pt solid #0052CC', paddingBottom: 10 },
@@ -24,17 +24,17 @@ const styles = StyleSheet.create({
   sectionHeader: { backgroundColor: '#0052CC', color: '#fff', padding: 4, fontWeight: 'bold', fontSize: 9, marginBottom: 6, borderRadius: 2 },
   
   row: { flexDirection: 'row', marginBottom: 8 },
-  field: { marginBottom: 4 },
-  label: { fontWeight: 'bold', fontSize: 7, color: '#6B778C', textTransform: 'uppercase', marginBottom: 1 },
-  value: { fontSize: 9, color: '#172B4D' },
+  field: { flexDirection: 'column', marginBottom: 6, minHeight: 28 },
+  label: { fontWeight: 'bold', fontSize: 7, color: '#6B778C', textTransform: 'uppercase', marginBottom: 2, lineHeight: 1.2 },
+  value: { fontSize: 9, color: '#172B4D', lineHeight: 1.35 },
   
   // Grid layout for G-O data
   goGrid: { flexDirection: 'row', flexWrap: 'wrap', border: '0.5pt solid #DFE1E6', borderRadius: 4, padding: 4 },
   goItem: { width: '25%', padding: 4, minHeight: 30 },
 
   // Findings
-  findingsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  findingBox: { width: '50%', marginBottom: 8, paddingRight: 10 },
+  twoColRow: { flexDirection: 'row', marginBottom: 10 },
+  halfCol: { width: '50%', paddingRight: 12 },
   
   // Text areas
   textArea: { padding: 8, backgroundColor: '#fafbfc', border: '0.5pt solid #DFE1E6', borderRadius: 4, minHeight: 35 },
@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
   // Visual Section
   visualSection: { marginTop: 10 },
   visualGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  diagramBox: { width: '50%', marginBottom: 15, padding: 5, alignItems: 'center' },
   visualBox: { width: '33.33%', marginBottom: 15, padding: 5, alignItems: 'center' },
   visualImgContainer: { position: 'relative', width: '100%', height: 110, border: '0.5pt solid #DFE1E6', borderRadius: 4, overflow: 'hidden', backgroundColor: '#fff' },
   visualImg: { width: '100%', height: '100%', objectFit: 'contain' },
@@ -95,7 +96,7 @@ const DiagramWithMarks = ({ type, marksJson, label }: { type: 'genitales' | 'cua
   try { if (marksJson) marks = JSON.parse(marksJson); } catch(e) {}
 
   return (
-    <View style={styles.visualBox} wrap={false}>
+    <View style={styles.diagramBox} wrap={false}>
       <View style={styles.visualImgContainer}>
         {type === 'genitales' ? <GenitalesDiagram /> : <CuadrantesDiagram />}
         {marks.length > 0 && (
@@ -125,7 +126,7 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="LETTER" style={styles.page}>
         {/* Header */}
         <View style={styles.headerContainer}>
           {(config.logo_data || config.logo_path) && <Image src={config.logo_data || config.logo_path} style={styles.logoBox} />}
@@ -172,26 +173,34 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
         {/* Findings */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>HALLAZGOS COLPOSCÓPICOS</Text>
-          <View style={styles.findingsGrid}>
-            <View style={styles.findingBox}><InfoField label="Vulva y Vagina" value={study.vulva_vagina} /></View>
-            <View style={styles.findingBox}><InfoField label="Tipo de Colposcopia" value={study.colposcopia_tipo} /></View>
-            <View style={styles.findingBox}><InfoField label="Cérvix" value={study.cervix} /></View>
-            <View style={styles.findingBox}><InfoField label="Zona de Transformación" value={study.zona_transformacion} /></View>
-            <View style={styles.findingBox}><InfoField label="Superficie" value={study.superficie} /></View>
-            <View style={styles.findingBox}><InfoField label="Bordes" value={study.bordes} /></View>
-            <View style={styles.findingBox}><InfoField label="Epitelio Acetoblanco" value={study.epitelio_acetoblanco} /></View>
-            <View style={styles.findingBox}><InfoField label="Prueba de Schiller" value={study.prueba_schiller} /></View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Vulva y Vagina" value={study.vulva_vagina} /></View>
+            <View style={styles.halfCol}><InfoField label="Tipo de Colposcopia" value={study.colposcopia_tipo} /></View>
+          </View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Cérvix" value={study.cervix} /></View>
+            <View style={styles.halfCol}><InfoField label="Zona de Transformación" value={study.zona_transformacion} /></View>
+          </View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Superficie" value={study.superficie} /></View>
+            <View style={styles.halfCol}><InfoField label="Bordes" value={study.bordes} /></View>
+          </View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Epitelio Acetoblanco" value={study.epitelio_acetoblanco} /></View>
+            <View style={styles.halfCol}><InfoField label="Prueba de Schiller" value={study.prueba_schiller} /></View>
           </View>
         </View>
 
         {/* Observations */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>OBSERVACIONES ESPECÍFICAS</Text>
-          <View style={styles.findingsGrid}>
-            <View style={styles.findingBox}><InfoField label="Patrón Vascular Velloso" value={study.patron_vascular_velloso} /></View>
-            <View style={styles.findingBox}><InfoField label="Vasos Atípicos" value={study.vasos_atipicos} /></View>
-            <View style={styles.findingBox}><InfoField label="Puntilleo" value={study.puntilleo} /></View>
-            <View style={styles.findingBox}><InfoField label="Mosaico" value={study.mosaico} /></View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Patrón Vascular Velloso" value={study.patron_vascular_velloso} /></View>
+            <View style={styles.halfCol}><InfoField label="Vasos Atípicos" value={study.vasos_atipicos} /></View>
+          </View>
+          <View style={styles.twoColRow}>
+            <View style={styles.halfCol}><InfoField label="Puntilleo" value={study.puntilleo} /></View>
+            <View style={styles.halfCol}><InfoField label="Mosaico" value={study.mosaico} /></View>
           </View>
         </View>
 
@@ -206,22 +215,29 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
         </View>
 
         {/* Visual Support */}
-        <View style={styles.visualSection}>
+        <View style={styles.visualSection} wrap={false}>
           <Text style={styles.sectionHeader}>APOYO VISUAL</Text>
           <View style={styles.visualGrid}>
             <DiagramWithMarks type="genitales" marksJson={study.diagram_genitales_marks} label="Genitales Externos" />
             <DiagramWithMarks type="cuadrantes" marksJson={study.diagram_cuadrantes_marks} label="Cuadrantes Cervicales" />
-            
-            {captures.map((cap, i) => (
-              <View style={styles.visualBox} key={i} wrap={false}>
-                <View style={styles.visualImgContainer}>
-                  <Image src={cap} style={styles.visualImg} />
-                </View>
-                <Text style={styles.visualLabel}>Captura {i+1}</Text>
-              </View>
-            ))}
           </View>
         </View>
+
+        {captures.length > 0 && (
+          <View style={styles.visualSection} break>
+            <Text style={styles.sectionHeader}>CAPTURAS</Text>
+            <View style={styles.visualGrid}>
+              {captures.map((cap, i) => (
+                <View style={styles.visualBox} key={i} wrap={false}>
+                  <View style={styles.visualImgContainer}>
+                    <Image src={cap} style={styles.visualImg} />
+                  </View>
+                  <Text style={styles.visualLabel}>Captura {i + 1}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Signature Area */}
         <View style={styles.signatureArea} wrap={false}>
@@ -233,7 +249,7 @@ export const ColposcopyPDF: React.FC<Props> = ({ patient, study }) => {
         </View>
 
         {/* Footer */}
-        <View style={styles.footer}>
+        <View style={styles.footer} fixed>
           <Text>{config.clinic_address || 'Dirección de la Clínica'}</Text>
           <Text>Tel: {config.clinic_phone || 'Teléfono'}</Text>
         </View>

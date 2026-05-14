@@ -7,10 +7,7 @@ import type { Patient, ClinicalHistory, MedicalNote, ColposcopyEntry } from "../
 import ClinicalHistoryForm from "./ClinicalHistoryForm";
 import MedicalNoteForm from "./MedicalNoteForm";
 
-import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
-import { ClinicalHistoryPDF } from "../components/ClinicalHistoryPDF";
-import { MedicalNotePDF } from "../components/MedicalNotePDF";
-import { ColposcopyPDF } from "../components/ColposcopyPDF";
+import { buildClinicalHistoryPdf, buildColposcopyPdf, buildMedicalNotePdf, createPdfBlobUrl, downloadPdf } from "../pdf/pdfLib";
 
 const PatientDashboard: React.FC = () => {
   const { id } = useParams();
@@ -20,6 +17,10 @@ const PatientDashboard: React.FC = () => {
   const [history, setHistory] = useState<ClinicalHistory | null>(null);
   const [notes, setNotes] = useState<MedicalNote[]>([]);
   const [colposcopies, setColposcopies] = useState<ColposcopyEntry[]>([]);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Modal/Overlay states
   const [activeForm, setActiveForm] = useState<{
@@ -29,6 +30,69 @@ const PatientDashboard: React.FC = () => {
   } | null>(null);
 
   useEffect(() => { if (!isNew && id) load(); }, [id]);
+
+  useEffect(() => {
+    if (activeForm?.mode === "view") {
+      generatePreviewPdf();
+      return;
+    }
+
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+    }
+    setPdfUrl(null);
+    setPdfBytes(null);
+    setPdfError(null);
+  }, [activeForm]);
+
+  const generatePreviewPdf = async () => {
+    if (!activeForm?.data) return null;
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      const config = await api.getConfig();
+      let bytes: Uint8Array;
+      if (activeForm.type === "history") {
+        bytes = await buildClinicalHistoryPdf(patient, activeForm.data as ClinicalHistory, config);
+      } else if (activeForm.type === "note") {
+        bytes = await buildMedicalNotePdf(patient, activeForm.data as MedicalNote, config);
+      } else {
+        bytes = await buildColposcopyPdf(patient, activeForm.data as ColposcopyEntry, config);
+      }
+
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+      setPdfBytes(bytes);
+      setPdfUrl(createPdfBlobUrl(bytes));
+      return bytes;
+    } catch (err) {
+      console.error(err);
+      setPdfError("No se pudo generar el PDF.");
+      return null;
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!activeForm?.data) return;
+    try {
+      const bytes = pdfBytes ?? (await generatePreviewPdf());
+      const filename =
+        activeForm.type === "history"
+          ? `Historial_${patient?.nombre}.pdf`
+          : activeForm.type === "note"
+          ? `Nota_${patient?.nombre}.pdf`
+          : `Colposcopia_${patient?.nombre}.pdf`;
+      if (bytes) {
+        downloadPdf(bytes, filename);
+      }
+    } catch (err) {
+      console.error(err);
+      window.alert("No se pudo descargar el PDF.");
+    }
+  };
 
   const load = async () => {
     if (!id) return;
@@ -192,32 +256,10 @@ const PatientDashboard: React.FC = () => {
                 ({activeForm.mode === "view" ? "Vista Previa" : activeForm.mode === "edit" ? "Editar" : "Crear"})
               </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
-                {activeForm.mode === "view" && activeForm.type === "history" && (
-                  <PDFDownloadLink document={<ClinicalHistoryPDF patient={patient} history={activeForm.data} />} fileName={`Historial_${patient?.nombre}.pdf`}>
-                    {({ loading }) => (
-                      <Button appearance="primary" isDisabled={loading}>
-                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
-                      </Button>
-                    )}
-                  </PDFDownloadLink>
-                )}
-                {activeForm.mode === "view" && activeForm.type === "note" && (
-                  <PDFDownloadLink document={<MedicalNotePDF patient={patient} note={activeForm.data} />} fileName={`Nota_${patient?.nombre}.pdf`}>
-                    {({ loading }) => (
-                      <Button appearance="primary" isDisabled={loading}>
-                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
-                      </Button>
-                    )}
-                  </PDFDownloadLink>
-                )}
-                {activeForm.mode === "view" && activeForm.type === "colposcopy" && (
-                  <PDFDownloadLink document={<ColposcopyPDF patient={patient} study={activeForm.data} />} fileName={`Colposcopia_${patient?.nombre}.pdf`}>
-                    {({ loading }) => (
-                      <Button appearance="primary" isDisabled={loading}>
-                        {loading ? "Preparando..." : "Descargar PDF / Imprimir"}
-                      </Button>
-                    )}
-                  </PDFDownloadLink>
+                {activeForm.mode === "view" && (
+                  <Button appearance="primary" isDisabled={pdfLoading} onClick={handleDownloadPdf}>
+                    {pdfLoading ? "Preparando..." : "Descargar PDF / Imprimir"}
+                  </Button>
                 )}
                 <Button appearance="subtle" onClick={() => setActiveForm(null)}>Cerrar</Button>
               </div>
@@ -225,15 +267,15 @@ const PatientDashboard: React.FC = () => {
             <ModalBody>
               {activeForm.mode === "view" ? (
                 <div style={{ height: '70vh' }}>
-                  <PDFViewer width="100%" height="100%" showToolbar={false} style={{ border: 'none' }}>
-                    {activeForm.type === "history" ? (
-                      <ClinicalHistoryPDF patient={patient} history={activeForm.data} />
-                    ) : activeForm.type === "note" ? (
-                      <MedicalNotePDF patient={patient} note={activeForm.data} />
-                    ) : (
-                      <ColposcopyPDF patient={patient} study={activeForm.data} />
-                    )}
-                  </PDFViewer>
+                  {pdfLoading && <p>Generando PDF...</p>}
+                  {pdfError && <p style={{ color: 'red' }}>{pdfError}</p>}
+                  {!pdfLoading && pdfUrl && (
+                    <iframe
+                      title="Vista previa PDF"
+                      src={pdfUrl}
+                      style={{ width: "100%", height: "100%", border: "none" }}
+                    />
+                  )}
                 </div>
               ) : (
                 <>
