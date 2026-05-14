@@ -129,7 +129,7 @@ const MedicalNoteForm: React.FC<Props> = ({ patientId, patientName, initialData,
         </Field>
       </Grid>
 
-      <SectionTitle>Dx / Plan / Firma</SectionTitle>
+      <SectionTitle>Dx / Plan</SectionTitle>
       <Grid columns={2}>
         <Field>
           <Label>Dx</Label>
@@ -138,22 +138,6 @@ const MedicalNoteForm: React.FC<Props> = ({ patientId, patientName, initialData,
         <Field>
           <Label>Plan</Label>
           <Input value={form.plan || ""} readOnly={isReadOnly} onChange={(e)=>setField('plan', e.target.value)} />
-        </Field>
-        <Field>
-          <Label>Firma (nombre)</Label>
-          <Input value={form.firma || ""} readOnly={isReadOnly} onChange={(e)=>setField('firma', e.target.value)} />
-        </Field>
-        <Field>
-          <Label>Especialidad</Label>
-          <Input value={form.especialidad || ""} readOnly={isReadOnly} onChange={(e)=>setField('especialidad', e.target.value)} />
-        </Field>
-        <Field>
-          <Label>Cédula Profesional</Label>
-          <Input value={form.cedula_prof || ""} readOnly={isReadOnly} onChange={(e)=>setField('cedula_prof', e.target.value)} />
-        </Field>
-        <Field>
-          <Label>Cédula de Especialidad</Label>
-          <Input value={form.cedula_especialidad || ""} readOnly={isReadOnly} onChange={(e)=>setField('cedula_especialidad', e.target.value)} />
         </Field>
       </Grid>
 
