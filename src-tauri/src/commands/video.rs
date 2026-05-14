@@ -12,12 +12,20 @@ pub fn test_camera_capture(path: String) -> Result<String, String> {
             .args([
                 "-y",
                 "-nostdin",
-                "-f", "v4l2",
-                "-video_size", "720x480",
-                "-i", &path,
-                "-frames:v", "1",
-                "-f", "image2pipe",
-                "-vcodec", "mjpeg",
+                "-f",
+                "v4l2",
+                "-video_size",
+                "640x480",
+                "-i",
+                &path,
+                "-frames:v",
+                "1",
+                "-q:v",
+                "7",
+                "-f",
+                "image2pipe",
+                "-vcodec",
+                "mjpeg",
                 "-",
             ])
             .output()
@@ -28,11 +36,18 @@ pub fn test_camera_capture(path: String) -> Result<String, String> {
             .args([
                 "-y",
                 "-nostdin",
-                "-f", "avfoundation",
-                "-i", &path, // On macOS this might be an index like "0"
-                "-frames:v", "1",
-                "-f", "image2pipe",
-                "-vcodec", "mjpeg",
+                "-f",
+                "avfoundation",
+                "-i",
+                &path, // On macOS this might be an index like "0"
+                "-frames:v",
+                "1",
+                "-q:v",
+                "7",
+                "-f",
+                "image2pipe",
+                "-vcodec",
+                "mjpeg",
                 "-",
             ])
             .output()
@@ -60,7 +75,7 @@ pub fn list_all_cameras() -> Result<Vec<VideoDevice>, String> {
             .args(["-f", "avfoundation", "-list_devices", "true", "-i", ""])
             .output()
             .map_err(|e| format!("Failed to list macOS devices: {}", e))?;
-        
+
         // ffmpeg outputs device list to stderr
         let text = String::from_utf8_lossy(&output.stderr);
         let mut devices = Vec::new();
@@ -76,13 +91,13 @@ pub fn list_all_cameras() -> Result<Vec<VideoDevice>, String> {
             }
             if in_video_section && line.contains("[") && line.contains("]") {
                 if let Some(start) = line.find(']') {
-                    let _part = &line[start+1..].trim();
+                    let _part = &line[start + 1..].trim();
                     // Simpler regex-like approach:
                     if let Some(idx_start) = line.find('[') {
-                        if let Some(idx_end) = line[idx_start+1..].find(']') {
-                            let idx_str = &line[idx_start+1..idx_start+1+idx_end];
+                        if let Some(idx_end) = line[idx_start + 1..].find(']') {
+                            let idx_str = &line[idx_start + 1..idx_start + 1 + idx_end];
                             if let Ok(_) = idx_str.parse::<u32>() {
-                                let label = &line[idx_start+1+idx_end+1..].trim();
+                                let label = &line[idx_start + 1 + idx_end + 1..].trim();
                                 devices.push(VideoDevice {
                                     label: label.to_string(),
                                     path: idx_str.to_string(),

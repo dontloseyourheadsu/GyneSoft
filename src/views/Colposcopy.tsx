@@ -27,8 +27,10 @@ const Colposcopy: React.FC = () => {
     prueba_schiller: "Negativo"
   });
 
-  const [rustFrame, setRustFrame] = useState<string | null>(null);
+  const [hasPreview, setHasPreview] = useState(false);
   const rustFrameRef = useRef<string | null>(null);
+  const previewReadyRef = useRef(false);
+  const previewImgRef = useRef<HTMLImageElement | null>(null);
   const streamActiveRef = useRef(false);
   const [captures, setCaptures] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -129,10 +131,16 @@ const Colposcopy: React.FC = () => {
     if (!streamActiveRef.current) return;
     try {
       const data = await (api as any).testCameraCapture(path);
-      setRustFrame(data);
       rustFrameRef.current = data;
+      if (previewImgRef.current) {
+        previewImgRef.current.src = data;
+      }
+      if (!previewReadyRef.current) {
+        previewReadyRef.current = true;
+        setHasPreview(true);
+      }
     } catch (e) { console.error("Rust stream error:", e); }
-    setTimeout(() => runRustStream(path), 100);
+    setTimeout(() => runRustStream(path), 60);
   };
 
   const moveCapture = (index: number, direction: 'up' | 'down') => {
@@ -214,8 +222,8 @@ const Colposcopy: React.FC = () => {
           <Section>
             <SectionTitle>Captura en Vivo (F5 o Pedal)</SectionTitle>
             <VideoWrapper $flash={flash}>
-              {rustFrame ? (
-                <img src={rustFrame} alt="Live Stream" />
+              {hasPreview ? (
+                <img ref={previewImgRef} alt="Live Stream" />
               ) : (
                 <div style={{color:'#666', fontSize:'12px'}}>Iniciando cámara...</div>
               )}
